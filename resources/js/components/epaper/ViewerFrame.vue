@@ -1,24 +1,35 @@
 <script setup lang="ts">
 import Panzoom, { type PanzoomObject } from '@panzoom/panzoom';
-import { ChevronLeft, ChevronRight, Minus, Plus, RotateCcw } from 'lucide-vue-next';
+import {
+    ChevronLeft,
+    ChevronRight,
+    Maximize2,
+    Minus,
+    Plus,
+} from 'lucide-vue-next';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { Button } from '@/components/ui/button';
 import type { Hotspot, Page } from '@/types';
 
-const props = withDefaults(defineProps<{
-    page: Page;
-    totalPages: number;
-    prevPageNo: number | null;
-    nextPageNo: number | null;
-    enablePanzoom?: boolean;
-}>(), {
-    enablePanzoom: true,
-});
+const props = withDefaults(
+    defineProps<{
+        page: Page;
+        totalPages: number;
+        prevPageNo: number | null;
+        nextPageNo: number | null;
+        enablePanzoom?: boolean;
+    }>(),
+    {
+        enablePanzoom: true,
+    },
+);
 
 const emit = defineEmits<{
     previous: [];
     next: [];
-    hotspotClick: [payload: { hotspot: Hotspot; image: HTMLImageElement | null }];
+    hotspotClick: [
+        payload: { hotspot: Hotspot; image: HTMLImageElement | null },
+    ];
 }>();
 
 const viewportRef = ref<HTMLDivElement | null>(null);
@@ -67,22 +78,30 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <div class="overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm">
-        <div ref="viewportRef" class="flex h-[calc(100vh-250px)] min-h-[320px] items-center justify-center overflow-auto bg-[#f9fafc] p-2 sm:p-3">
-            <div ref="stageRef" class="relative mx-auto inline-block max-h-full max-w-full touch-none select-none">
+    <div
+        class="flex h-[calc(100vh-120px)] min-h-[500px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-md"
+    >
+        <div
+            ref="viewportRef"
+            class="flex flex-1 items-center justify-center overflow-auto bg-slate-50"
+        >
+            <div
+                ref="stageRef"
+                class="relative mx-auto inline-block touch-none select-none"
+            >
                 <img
                     ref="imageRef"
                     :src="imageUrlForPage(page)"
                     :alt="`Page ${page.page_no}`"
                     draggable="false"
-                    class="block h-auto w-auto max-h-full max-w-full object-contain"
+                    class="block max-h-[calc(100vh-170px)] w-auto object-contain"
                 />
 
                 <button
                     v-for="hotspot in page.hotspots"
                     :key="hotspot.id"
                     type="button"
-                    class="hotspot-overlay absolute z-20 rounded-[2px] border border-transparent bg-transparent transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                    class="hotspot-overlay absolute z-20 rounded-sm border border-transparent bg-transparent transition-all duration-150 focus-visible:ring-2 focus-visible:ring-sky-400/80 focus-visible:outline-none"
                     :style="{
                         left: `${hotspot.x * 100}%`,
                         top: `${hotspot.y * 100}%`,
@@ -95,44 +114,59 @@ onBeforeUnmount(() => {
             </div>
         </div>
 
-        <div class="grid grid-cols-1 gap-2 border-t border-slate-300 bg-slate-50 px-3 py-2 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
-            <p class="order-1 text-center text-sm font-semibold text-slate-700 sm:order-2">
-                Page {{ page.page_no }} / {{ totalPages }}
-            </p>
-
-            <div class="order-2 flex items-center justify-center gap-2 sm:order-1 sm:justify-start">
+        <div
+            class="flex shrink-0 items-center justify-between gap-2 border-t border-slate-200 bg-white px-3 py-2"
+        >
+            <div class="flex items-center gap-1.5">
                 <Button
-                    variant="outline"
-                    size="sm"
-                    class="flex-1 sm:flex-none"
+                    variant="ghost"
+                    size="icon-sm"
                     :disabled="prevPageNo === null"
+                    title="Previous page"
                     @click="emit('previous')"
                 >
-                    <ChevronLeft class="mr-1 size-4" />
-                    Prev
+                    <ChevronLeft class="size-4" />
                 </Button>
+                <span
+                    class="min-w-[4rem] text-center text-sm font-medium text-slate-700 tabular-nums"
+                >
+                    {{ page.page_no }} / {{ totalPages }}
+                </span>
                 <Button
-                    variant="outline"
-                    size="sm"
-                    class="flex-1 sm:flex-none"
+                    variant="ghost"
+                    size="icon-sm"
                     :disabled="nextPageNo === null"
+                    title="Next page"
                     @click="emit('next')"
                 >
-                    Next
-                    <ChevronRight class="ml-1 size-4" />
+                    <ChevronRight class="size-4" />
                 </Button>
             </div>
 
-            <div class="order-3 flex items-center justify-center gap-2 sm:justify-end">
-                <Button variant="outline" size="sm" title="Zoom out" @click="zoomOut">
+            <div class="flex items-center gap-1">
+                <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    title="Zoom out"
+                    @click="zoomOut"
+                >
                     <Minus class="size-4" />
                 </Button>
-                <Button variant="outline" size="sm" title="Zoom in" @click="zoomIn">
+                <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    title="Zoom in"
+                    @click="zoomIn"
+                >
                     <Plus class="size-4" />
                 </Button>
-                <Button variant="outline" size="sm" @click="resetZoom">
-                    <RotateCcw class="mr-1 size-4" />
-                    Reset
+                <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    title="Reset zoom"
+                    @click="resetZoom"
+                >
+                    <Maximize2 class="size-4" />
                 </Button>
             </div>
         </div>
@@ -141,15 +175,15 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .hotspot-overlay:focus-visible {
-    border-color: rgb(14 165 233 / 0.85);
-    background-color: rgb(14 165 233 / 0.22);
+    border-color: rgb(14 165 233 / 0.7);
+    background-color: rgb(14 165 233 / 0.12);
 }
 
 @media (hover: hover) and (pointer: fine) {
     .hotspot-overlay:hover {
         cursor: pointer;
-        border-color: rgb(14 165 233 / 0.85);
-        background-color: rgb(14 165 233 / 0.22);
+        border-color: rgb(14 165 233 / 0.6);
+        background-color: rgb(14 165 233 / 0.1);
     }
 }
 </style>

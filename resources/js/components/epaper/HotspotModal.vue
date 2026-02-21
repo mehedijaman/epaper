@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { Copy, Facebook, MessageCircle, Printer, Send, Twitter } from 'lucide-vue-next';
-import { Button } from '@/components/ui/button';
 import {
-    Dialog,
-    DialogContent,
-    DialogFooter,
-} from '@/components/ui/dialog';
+    Copy,
+    Facebook,
+    MessageCircle,
+    Printer,
+    Send,
+    Twitter,
+} from 'lucide-vue-next';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogFooter } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
 
 const props = defineProps<{
@@ -92,7 +95,9 @@ function shareToFacebook(): void {
         return;
     }
 
-    openShareUrl(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`);
+    openShareUrl(
+        `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
+    );
 }
 
 function shareToX(): void {
@@ -136,7 +141,9 @@ function printPreview(): void {
 
     const printDocument = printWindow.document;
     printDocument.open();
-    printDocument.write('<!doctype html><html><head><title>Hotspot Preview</title></head><body></body></html>');
+    printDocument.write(
+        '<!doctype html><html><head><title>Hotspot Preview</title></head><body></body></html>',
+    );
     printDocument.close();
 
     if (printDocument.head === null || printDocument.body === null) {
@@ -204,72 +211,143 @@ function printPreview(): void {
 
 <template>
     <Dialog :open="open" @update:open="handleOpenChange">
-        <DialogContent :show-close-button="false" class="max-h-[90vh] overflow-y-auto p-4 sm:max-w-4xl sm:p-6">
+        <DialogContent
+            :show-close-button="false"
+            class="max-h-[90vh] overflow-y-auto p-4 sm:max-w-3xl sm:p-6"
+        >
             <div class="space-y-4">
-                <div class="space-y-2">
-                    <div class="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
-                        <div v-if="loading" class="flex h-52 items-center justify-center">
-                            <Spinner class="size-6" />
+                <div>
+                    <div
+                        class="overflow-hidden rounded-lg border border-slate-200 bg-slate-50"
+                    >
+                        <div
+                            v-if="loading"
+                            class="flex h-48 items-center justify-center"
+                        >
+                            <Spinner class="size-5" />
                         </div>
                         <img
                             v-else-if="previewUrl"
                             :src="previewUrl"
                             alt="Hotspot cropped preview"
-                            class="h-auto max-h-[42vh] w-full object-contain"
+                            class="h-auto max-h-[40vh] w-full object-contain"
                         />
-                        <div v-else class="flex h-32 items-center justify-center px-4 text-sm text-muted-foreground">
-                            Preview unavailable for this hotspot.
+                        <div
+                            v-else
+                            class="flex h-28 items-center justify-center text-sm text-slate-400"
+                        >
+                            Preview unavailable
                         </div>
                     </div>
                 </div>
 
                 <div class="space-y-2">
-                    <h4 class="text-sm font-semibold">
+                    <h4 class="text-sm font-medium text-slate-700">
                         Linked hotspot
-                        <span v-if="linkedPageNo !== null" class="font-normal text-muted-foreground">
-                            (Page {{ linkedPageNo }})
+                        <span
+                            v-if="linkedPageNo !== null"
+                            class="text-slate-400"
+                        >
+                            &middot; Page {{ linkedPageNo }}
                         </span>
                     </h4>
-                    <div class="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
-                        <div v-if="linkedLoading" class="flex h-52 items-center justify-center">
-                            <Spinner class="size-6" />
+                    <div
+                        class="overflow-hidden rounded-lg border border-slate-200 bg-slate-50"
+                    >
+                        <div
+                            v-if="linkedLoading"
+                            class="flex h-48 items-center justify-center"
+                        >
+                            <Spinner class="size-5" />
                         </div>
                         <img
                             v-else-if="linkedPreviewUrl"
                             :src="linkedPreviewUrl"
                             alt="Linked hotspot cropped preview"
-                            class="h-auto max-h-[42vh] w-full object-contain"
+                            class="h-auto max-h-[40vh] w-full object-contain"
                         />
-                        <div v-else class="flex h-24 items-center justify-center px-4 text-sm text-muted-foreground">
-                            No linked hotspot preview found.
+                        <div
+                            v-else
+                            class="flex h-20 items-center justify-center text-sm text-slate-400"
+                        >
+                            No linked preview
                         </div>
                     </div>
                 </div>
             </div>
 
-            <DialogFooter class="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div class="flex flex-wrap items-center gap-2">
-                    <Button variant="outline" size="icon" type="button" title="Copy link" aria-label="Copy link" @click="copyLink">
+            <DialogFooter
+                class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+            >
+                <div class="flex items-center gap-1.5">
+                    <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        type="button"
+                        title="Copy link"
+                        aria-label="Copy link"
+                        @click="copyLink"
+                    >
                         <Copy class="size-4" />
                     </Button>
-                    <Button variant="outline" size="icon" type="button" title="Share to WhatsApp" aria-label="Share to WhatsApp" @click="shareToWhatsApp">
+                    <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        type="button"
+                        title="Share to WhatsApp"
+                        aria-label="Share to WhatsApp"
+                        @click="shareToWhatsApp"
+                    >
                         <MessageCircle class="size-4" />
                     </Button>
-                    <Button variant="outline" size="icon" type="button" title="Share to Facebook" aria-label="Share to Facebook" @click="shareToFacebook">
+                    <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        type="button"
+                        title="Share to Facebook"
+                        aria-label="Share to Facebook"
+                        @click="shareToFacebook"
+                    >
                         <Facebook class="size-4" />
                     </Button>
-                    <Button variant="outline" size="icon" type="button" title="Share to X" aria-label="Share to X" @click="shareToX">
+                    <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        type="button"
+                        title="Share to X"
+                        aria-label="Share to X"
+                        @click="shareToX"
+                    >
                         <Twitter class="size-4" />
                     </Button>
-                    <Button variant="outline" size="icon" type="button" title="Share to Telegram" aria-label="Share to Telegram" @click="shareToTelegram">
+                    <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        type="button"
+                        title="Share to Telegram"
+                        aria-label="Share to Telegram"
+                        @click="shareToTelegram"
+                    >
                         <Send class="size-4" />
                     </Button>
-                    <Button variant="outline" size="icon" type="button" title="Print hotspot preview" aria-label="Print hotspot preview" @click="printPreview">
+                    <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        type="button"
+                        title="Print preview"
+                        aria-label="Print preview"
+                        @click="printPreview"
+                    >
                         <Printer class="size-4" />
                     </Button>
                 </div>
 
-                <Button variant="outline" class="w-full sm:w-auto" @click="emit('close')">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    class="w-full sm:w-auto"
+                    @click="emit('close')"
+                >
                     Close
                 </Button>
             </DialogFooter>

@@ -1,17 +1,27 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
-import { AlertCircle, CalendarDays, Grid2x2, List, Newspaper } from 'lucide-vue-next';
+import {
+    AlertCircle,
+    CalendarDays,
+    Grid2x2,
+    List,
+    Newspaper,
+} from 'lucide-vue-next';
 import type { AcceptableValue } from 'reka-ui';
 import type { ComponentPublicInstance } from 'vue';
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import {
+    computed,
+    nextTick,
+    onBeforeUnmount,
+    onMounted,
+    ref,
+    watch,
+} from 'vue';
 import AdBlock from '@/components/epaper/AdBlock.vue';
 import HotspotModal from '@/components/epaper/HotspotModal.vue';
 import ThumbnailRail from '@/components/epaper/ThumbnailRail.vue';
 import ViewerFrame from '@/components/epaper/ViewerFrame.vue';
-import {
-    Alert,
-    AlertDescription,
-} from '@/components/ui/alert';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -22,7 +32,14 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { createHotspotPreviewDataUrl } from '@/lib/epaper/crop';
-import type { Ad, Hotspot, LinkedHotspotRef, Page, ViewerCategoryItem, ViewerPageListItem } from '@/types';
+import type {
+    Ad,
+    Hotspot,
+    LinkedHotspotRef,
+    Page,
+    ViewerCategoryItem,
+    ViewerPageListItem,
+} from '@/types';
 
 type FooterSettings = {
     footer_editor_info: string;
@@ -30,21 +47,24 @@ type FooterSettings = {
     footer_copyright: string;
 };
 
-const props = withDefaults(defineProps<{
-    title: string;
-    editionDate: string | null;
-    page: Page | null;
-    pages: ViewerPageListItem[];
-    categories?: ViewerCategoryItem[];
-    availableDates: string[];
-    logoUrl?: string | null;
-    settings: FooterSettings;
-    adsBySlot?: Record<string, Ad[]>;
-}>(), {
-    categories: () => [],
-    logoUrl: null,
-    adsBySlot: undefined,
-});
+const props = withDefaults(
+    defineProps<{
+        title: string;
+        editionDate: string | null;
+        page: Page | null;
+        pages: ViewerPageListItem[];
+        categories?: ViewerCategoryItem[];
+        availableDates: string[];
+        logoUrl?: string | null;
+        settings: FooterSettings;
+        adsBySlot?: Record<string, Ad[]>;
+    }>(),
+    {
+        categories: () => [],
+        logoUrl: null,
+        adsBySlot: undefined,
+    },
+);
 
 function dateInDhaka(reference: Date = new Date()): string {
     const parts = new Intl.DateTimeFormat('en-CA', {
@@ -58,14 +78,18 @@ function dateInDhaka(reference: Date = new Date()): string {
     const month = parts.find((part) => part.type === 'month')?.value ?? '';
     const day = parts.find((part) => part.type === 'day')?.value ?? '';
 
-    return year !== '' && month !== '' && day !== '' ? `${year}-${month}-${day}` : '';
+    return year !== '' && month !== '' && day !== ''
+        ? `${year}-${month}-${day}`
+        : '';
 }
 
 const selectedDate = ref(dateInDhaka());
 const selectedPage = ref(props.page ? String(props.page.page_no) : '');
 const selectedCategory = ref('');
 const thumbnailMode = ref<'strip' | 'grid'>('strip');
-const dateInputRef = ref<HTMLInputElement | ComponentPublicInstance | null>(null);
+const dateInputRef = ref<HTMLInputElement | ComponentPublicInstance | null>(
+    null,
+);
 const viewerSectionRef = ref<HTMLElement | null>(null);
 const thumbnailRailHeight = ref<number | null>(null);
 
@@ -83,20 +107,31 @@ const isGeneratingLinkedPreview = ref(false);
 const hotspotPreviewImage = ref<HTMLImageElement | null>(null);
 let previewJobId = 0;
 let linkedPreviewJobId = 0;
-const hotspotImagePromiseCache = new Map<string, Promise<HTMLImageElement | null>>();
+const hotspotImagePromiseCache = new Map<
+    string,
+    Promise<HTMLImageElement | null>
+>();
 
 const hasPageData = computed(() => {
-    return props.editionDate !== null && props.page !== null && scopedPages.value.length > 0;
+    return (
+        props.editionDate !== null &&
+        props.page !== null &&
+        scopedPages.value.length > 0
+    );
 });
 
 const currentPageNo = computed(() => props.page?.page_no ?? 0);
-const currentPageHotspots = computed<Hotspot[]>(() => props.page?.hotspots ?? []);
+const currentPageHotspots = computed<Hotspot[]>(
+    () => props.page?.hotspots ?? [],
+);
 const scopedPages = computed<ViewerPageListItem[]>(() => {
     if (props.page === null) {
         return [...props.pages].sort((a, b) => a.page_no - b.page_no);
     }
 
-    const filtered = props.pages.filter((item) => item.edition_id === props.page?.edition_id);
+    const filtered = props.pages.filter(
+        (item) => item.edition_id === props.page?.edition_id,
+    );
 
     if (filtered.length === 0) {
         return [
@@ -132,7 +167,9 @@ const pageIndex = computed(() => {
         return -1;
     }
 
-    return scopedPages.value.findIndex((item) => item.page_no === currentPageNo.value);
+    return scopedPages.value.findIndex(
+        (item) => item.page_no === currentPageNo.value,
+    );
 });
 
 const prevPageNo = computed<number | null>(() => {
@@ -144,7 +181,10 @@ const prevPageNo = computed<number | null>(() => {
 });
 
 const nextPageNo = computed<number | null>(() => {
-    if (pageIndex.value < 0 || pageIndex.value >= scopedPages.value.length - 1) {
+    if (
+        pageIndex.value < 0 ||
+        pageIndex.value >= scopedPages.value.length - 1
+    ) {
         return null;
     }
 
@@ -167,7 +207,11 @@ const derivedCategories = computed<ViewerCategoryItem[]>(() => {
     const map = new Map<number, ViewerCategoryItem>();
 
     for (const item of scopedPages.value) {
-        if (item.category_id === null || item.category_name === null || map.has(item.category_id)) {
+        if (
+            item.category_id === null ||
+            item.category_name === null ||
+            map.has(item.category_id)
+        ) {
             continue;
         }
 
@@ -182,7 +226,10 @@ const derivedCategories = computed<ViewerCategoryItem[]>(() => {
 });
 
 const mappedCategories = computed<ViewerCategoryItem[]>(() => {
-    const source = props.categories.length > 0 ? props.categories : derivedCategories.value;
+    const source =
+        props.categories.length > 0
+            ? props.categories
+            : derivedCategories.value;
 
     return source
         .filter((item) => categoryPageMap.value.has(item.id))
@@ -223,25 +270,25 @@ watch(
 watch(
     () => props.page?.category_id,
     (value) => {
-        selectedCategory.value = value !== null && value !== undefined ? String(value) : '';
+        selectedCategory.value =
+            value !== null && value !== undefined ? String(value) : '';
     },
     { immediate: true },
 );
 
-watch(
-    currentPageHotspots,
-    (hotspots) => {
-        if (activeHotspotId.value === null) {
-            return;
-        }
+watch(currentPageHotspots, (hotspots) => {
+    if (activeHotspotId.value === null) {
+        return;
+    }
 
-        const activeExists = hotspots.some((hotspot) => hotspot.id === activeHotspotId.value);
+    const activeExists = hotspots.some(
+        (hotspot) => hotspot.id === activeHotspotId.value,
+    );
 
-        if (!activeExists) {
-            closeHotspotModal();
-        }
-    },
-);
+    if (!activeExists) {
+        closeHotspotModal();
+    }
+});
 
 watch(
     () => props.page?.id,
@@ -299,7 +346,8 @@ function updateLocationHash(hotspotId: number | null): void {
     }
 
     const baseUrl = `${window.location.pathname}${window.location.search}`;
-    const nextUrl = hotspotId === null ? baseUrl : `${baseUrl}#hotspot-${hotspotId}`;
+    const nextUrl =
+        hotspotId === null ? baseUrl : `${baseUrl}#hotspot-${hotspotId}`;
     window.history.replaceState(window.history.state, '', nextUrl);
 }
 
@@ -374,7 +422,10 @@ async function navigateToDate(date: string): Promise<void> {
         return;
     }
 
-    if (props.availableDates.length > 0 && !props.availableDates.includes(date)) {
+    if (
+        props.availableDates.length > 0 &&
+        !props.availableDates.includes(date)
+    ) {
         showToastError(`No published edition found for ${date}.`);
         selectedDate.value = props.editionDate ?? dateInDhaka();
         return;
@@ -442,9 +493,9 @@ function resolveDateInputElement(): HTMLInputElement | null {
     }
 
     if (
-        value !== null
-        && '$el' in value
-        && (value.$el instanceof HTMLElement || value.$el instanceof SVGElement)
+        value !== null &&
+        '$el' in value &&
+        (value.$el instanceof HTMLElement || value.$el instanceof SVGElement)
     ) {
         const element = value.$el;
 
@@ -491,14 +542,21 @@ function updateThumbnailRailHeight(): void {
         return;
     }
 
-    thumbnailRailHeight.value = Math.max(0, Math.round(section.getBoundingClientRect().height));
+    thumbnailRailHeight.value = Math.max(
+        0,
+        Math.round(section.getBoundingClientRect().height),
+    );
 }
 
 function refreshViewerSectionObserver(): void {
     viewerSectionObserver?.disconnect();
     viewerSectionObserver = null;
 
-    if (typeof window === 'undefined' || viewerSectionRef.value === null || !('ResizeObserver' in window)) {
+    if (
+        typeof window === 'undefined' ||
+        viewerSectionRef.value === null ||
+        !('ResizeObserver' in window)
+    ) {
         return;
     }
 
@@ -556,9 +614,13 @@ function toHotspotFromReference(reference: LinkedHotspotRef): Hotspot {
     };
 }
 
-function findHotspotByIdInPages(hotspotId: number): { hotspot: Hotspot; pageNo: number } | null {
+function findHotspotByIdInPages(
+    hotspotId: number,
+): { hotspot: Hotspot; pageNo: number } | null {
     for (const pageItem of scopedPages.value) {
-        const found = pageItem.hotspots.find((candidate) => candidate.id === hotspotId);
+        const found = pageItem.hotspots.find(
+            (candidate) => candidate.id === hotspotId,
+        );
 
         if (found !== undefined) {
             return {
@@ -571,7 +633,9 @@ function findHotspotByIdInPages(hotspotId: number): { hotspot: Hotspot; pageNo: 
     return null;
 }
 
-function resolveLinkedHotspot(hotspot: Hotspot): { hotspot: Hotspot; pageNo: number } | null {
+function resolveLinkedHotspot(
+    hotspot: Hotspot,
+): { hotspot: Hotspot; pageNo: number } | null {
     const linkedReference = hotspot.linked_hotspot ?? hotspot.target_hotspot;
 
     if (linkedReference !== null && linkedReference !== undefined) {
@@ -581,7 +645,8 @@ function resolveLinkedHotspot(hotspot: Hotspot): { hotspot: Hotspot; pageNo: num
         };
     }
 
-    const linkedHotspotId = hotspot.linked_hotspot_id ?? hotspot.target_hotspot_id;
+    const linkedHotspotId =
+        hotspot.linked_hotspot_id ?? hotspot.target_hotspot_id;
 
     if (linkedHotspotId !== null && linkedHotspotId !== undefined) {
         const matchedById = findHotspotByIdInPages(linkedHotspotId);
@@ -602,8 +667,13 @@ function resolveLinkedHotspot(hotspot: Hotspot): { hotspot: Hotspot; pageNo: num
     }
 
     const reverseLinked = targetPage.hotspots.find((candidate) => {
-        const candidateLinkedId = candidate.linked_hotspot_id ?? candidate.target_hotspot_id;
-        return candidateLinkedId !== null && candidateLinkedId !== undefined && candidateLinkedId === hotspot.id;
+        const candidateLinkedId =
+            candidate.linked_hotspot_id ?? candidate.target_hotspot_id;
+        return (
+            candidateLinkedId !== null &&
+            candidateLinkedId !== undefined &&
+            candidateLinkedId === hotspot.id
+        );
     });
 
     if (reverseLinked !== undefined) {
@@ -613,7 +683,9 @@ function resolveLinkedHotspot(hotspot: Hotspot): { hotspot: Hotspot; pageNo: num
         };
     }
 
-    const reverseByTargetPage = targetPage.hotspots.find((candidate) => candidate.target_page_no === currentPageNo.value);
+    const reverseByTargetPage = targetPage.hotspots.find(
+        (candidate) => candidate.target_page_no === currentPageNo.value,
+    );
 
     if (reverseByTargetPage !== undefined) {
         return {
@@ -638,11 +710,19 @@ function pageImageUrl(pageNo: number): string | null {
     const fromPageList = pageByNumber.value.get(pageNo);
 
     if (fromPageList !== undefined) {
-        return fromPageList.image_large_url || fromPageList.image_original_url || fromPageList.image_thumb_url;
+        return (
+            fromPageList.image_large_url ||
+            fromPageList.image_original_url ||
+            fromPageList.image_thumb_url
+        );
     }
 
     if (props.page !== null && props.page.page_no === pageNo) {
-        return props.page.image_large_url || props.page.image_original_url || props.page.image_thumb_url;
+        return (
+            props.page.image_large_url ||
+            props.page.image_original_url ||
+            props.page.image_thumb_url
+        );
     }
 
     return null;
@@ -690,7 +770,9 @@ function loadImageFromUrl(url: string): Promise<HTMLImageElement | null> {
     return promise;
 }
 
-async function updateLinkedHotspotPreview(sourceHotspot: Hotspot): Promise<void> {
+async function updateLinkedHotspotPreview(
+    sourceHotspot: Hotspot,
+): Promise<void> {
     resetLinkedHotspotPreview();
 
     const linked = resolveLinkedHotspot(sourceHotspot);
@@ -748,7 +830,9 @@ async function openHotspotFromHashIfNeeded(): Promise<void> {
         return;
     }
 
-    const hotspotOnCurrentPage = currentPageHotspots.value.some((hotspot) => hotspot.id === hotspotId);
+    const hotspotOnCurrentPage = currentPageHotspots.value.some(
+        (hotspot) => hotspot.id === hotspotId,
+    );
 
     if (hotspotOnCurrentPage) {
         isModalOpen.value = true;
@@ -762,13 +846,19 @@ async function openHotspotFromHashIfNeeded(): Promise<void> {
 
     const hotspotLocation = findHotspotByIdInPages(hotspotId);
 
-    if (hotspotLocation === null || hotspotLocation.pageNo === currentPageNo.value) {
+    if (
+        hotspotLocation === null ||
+        hotspotLocation.pageNo === currentPageNo.value
+    ) {
         return;
     }
 
-    router.visit(`${viewerUrl(props.editionDate, hotspotLocation.pageNo)}#hotspot-${hotspotId}`, {
-        preserveScroll: true,
-    });
+    router.visit(
+        `${viewerUrl(props.editionDate, hotspotLocation.pageNo)}#hotspot-${hotspotId}`,
+        {
+            preserveScroll: true,
+        },
+    );
 }
 
 function onHashChange(): void {
@@ -785,7 +875,10 @@ function onHashChange(): void {
     void openHotspotFromHashIfNeeded();
 }
 
-async function onHotspotClick(payload: { hotspot: Hotspot; image: HTMLImageElement | null }): Promise<void> {
+async function onHotspotClick(payload: {
+    hotspot: Hotspot;
+    image: HTMLImageElement | null;
+}): Promise<void> {
     hotspotPreviewImage.value = payload.image;
     isModalOpen.value = true;
 
@@ -793,7 +886,9 @@ async function onHotspotClick(payload: { hotspot: Hotspot; image: HTMLImageEleme
 }
 
 async function selectHotspot(hotspotId: number): Promise<void> {
-    const hotspot = currentPageHotspots.value.find((item) => item.id === hotspotId);
+    const hotspot = currentPageHotspots.value.find(
+        (item) => item.id === hotspotId,
+    );
 
     if (hotspot === undefined) {
         return;
@@ -877,28 +972,43 @@ onBeforeUnmount(() => {
 <template>
     <Head :title="title" />
 
-    <div class="min-h-screen bg-[#d8dde7] text-slate-900">
-        <header class="border-b border-slate-300 bg-[#eceef3]">
-            <div class="mx-auto flex max-w-[1360px] items-center justify-center px-3 py-2 sm:px-4">
+    <div class="flex min-h-screen flex-col bg-slate-100 text-slate-900">
+        <header class="border-b border-slate-200 bg-white shadow-sm">
+            <div
+                class="mx-auto flex max-w-7xl items-center justify-center px-4 py-3"
+            >
                 <img
                     v-if="logoUrl"
                     :src="logoUrl"
                     alt="Newspaper logo"
-                    class="h-11 w-auto object-contain sm:h-14"
+                    class="h-10 w-auto object-contain sm:h-12"
                 />
-                <div v-else class="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 shadow-sm">
-                    <Newspaper class="size-5" />
-                    <span class="text-lg font-bold">ePaper</span>
+                <div v-else class="inline-flex items-center gap-2">
+                    <Newspaper class="size-5 text-slate-700" />
+                    <span
+                        class="text-lg font-bold tracking-tight text-slate-900"
+                        >ePaper</span
+                    >
                 </div>
             </div>
         </header>
 
-        <main class="mx-auto w-full max-w-[1360px] px-2 pb-4 pt-2 sm:px-4">
-            <div class="rounded-xl border border-slate-300 bg-[#e7eaf2] shadow-sm">
-                <div class="sticky top-0 z-30 border-b border-slate-300 bg-[#f7f8fb]/95 px-3 py-2 backdrop-blur">
-                    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-                            <div class="min-w-[150px] flex-1 basis-[180px] sm:w-[180px] sm:flex-none">
+        <main class="mx-auto w-full max-w-7xl flex-1 px-2 py-3 sm:px-4">
+            <div
+                class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+            >
+                <div
+                    class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 px-3 py-2.5 backdrop-blur-sm"
+                >
+                    <div
+                        class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                        <div
+                            class="flex w-full flex-wrap items-center gap-2 sm:w-auto"
+                        >
+                            <div
+                                class="min-w-[140px] flex-1 basis-[160px] sm:w-[170px] sm:flex-none"
+                            >
                                 <Select
                                     :model-value="selectedCategory"
                                     :disabled="!hasMappedCategories"
@@ -919,7 +1029,9 @@ onBeforeUnmount(() => {
                                 </Select>
                             </div>
 
-                            <div class="min-w-[110px] flex-1 basis-[120px] sm:w-[120px] sm:flex-none">
+                            <div
+                                class="min-w-[100px] flex-1 basis-[110px] sm:w-[110px] sm:flex-none"
+                            >
                                 <Select
                                     :model-value="selectedPage"
                                     :disabled="!hasPageData"
@@ -942,28 +1054,35 @@ onBeforeUnmount(() => {
 
                             <Button
                                 type="button"
-                                variant="outline"
-                                size="icon"
+                                variant="ghost"
+                                size="icon-sm"
                                 class="shrink-0"
-                                :title="thumbnailMode === 'strip' ? 'Switch to grid thumbnails' : 'Switch to strip thumbnails'"
+                                :title="
+                                    thumbnailMode === 'strip'
+                                        ? 'Switch to grid thumbnails'
+                                        : 'Switch to strip thumbnails'
+                                "
                                 @click="toggleThumbnailMode"
                             >
-                                <Grid2x2 v-if="thumbnailMode === 'strip'" class="size-4" />
+                                <Grid2x2
+                                    v-if="thumbnailMode === 'strip'"
+                                    class="size-4"
+                                />
                                 <List v-else class="size-4" />
                             </Button>
                         </div>
 
                         <div
-                            class="inline-flex w-full items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1 shadow-sm sm:ml-auto sm:w-auto"
+                            class="inline-flex w-full cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 transition hover:border-slate-300 sm:ml-auto sm:w-auto"
                             @click="openDatePicker"
                         >
-                            <CalendarDays class="size-4 text-sky-600" />
+                            <CalendarDays class="size-4 text-slate-500" />
                             <Input
                                 ref="dateInputRef"
                                 type="date"
                                 :value="selectedDate"
                                 list="public-viewer-dates"
-                                class="h-auto w-full border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0 sm:w-[150px]"
+                                class="h-auto w-full cursor-pointer border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0 sm:w-[140px]"
                                 @change="onDateChange"
                                 @click.stop="openDatePicker"
                             />
@@ -977,12 +1096,18 @@ onBeforeUnmount(() => {
                         </div>
                     </div>
 
-                    <p v-if="!hasMappedCategories" class="mt-1 text-xs text-muted-foreground">
+                    <p
+                        v-if="!hasMappedCategories"
+                        class="mt-1.5 text-xs text-slate-500"
+                    >
                         No categories mapped in this edition.
                     </p>
                 </div>
 
-                <div v-if="hasPageData && page" class="grid items-stretch lg:grid-cols-[132px_minmax(0,1fr)]">
+                <div
+                    v-if="hasPageData && page"
+                    class="grid items-stretch lg:grid-cols-[140px_minmax(0,1fr)]"
+                >
                     <ThumbnailRail
                         class="hidden lg:block"
                         :pages="scopedPages"
@@ -992,22 +1117,36 @@ onBeforeUnmount(() => {
                         @select="navigateToPage"
                     />
 
-                    <section ref="viewerSectionRef" class="min-w-0 bg-[#f1f3f9] p-2 sm:p-3">
-                        <div class="mx-auto max-w-[1100px]">
+                    <section
+                        ref="viewerSectionRef"
+                        class="min-w-0 bg-slate-50 p-2 sm:p-3"
+                    >
+                        <div class="mx-auto max-w-5xl">
                             <ViewerFrame
                                 :page="page"
                                 :total-pages="scopedPages.length"
                                 :prev-page-no="prevPageNo"
                                 :next-page-no="nextPageNo"
-                                @previous="prevPageNo !== null ? navigateToPage(prevPageNo) : null"
-                                @next="nextPageNo !== null ? navigateToPage(nextPageNo) : null"
+                                @previous="
+                                    prevPageNo !== null
+                                        ? navigateToPage(prevPageNo)
+                                        : null
+                                "
+                                @next="
+                                    nextPageNo !== null
+                                        ? navigateToPage(nextPageNo)
+                                        : null
+                                "
                                 @hotspot-click="onHotspotClick"
                             />
                         </div>
                     </section>
                 </div>
 
-                <div v-else class="p-8 text-center text-sm text-slate-600">
+                <div
+                    v-else
+                    class="flex items-center justify-center p-12 text-sm text-slate-500"
+                >
                     No published edition found.
                 </div>
             </div>
@@ -1027,23 +1166,31 @@ onBeforeUnmount(() => {
             -->
         </main>
 
-        <footer class="border-t border-slate-300 bg-[#eff1f6] py-4">
-            <div class="mx-auto flex max-w-[1360px] flex-col gap-3 px-4 text-xs text-slate-700 sm:flex-row sm:items-end sm:justify-between sm:text-sm">
-                <div class="space-y-1 text-center sm:text-left">
+        <footer class="border-t border-slate-200 bg-white py-4">
+            <div
+                class="mx-auto flex max-w-7xl flex-col gap-4 px-4 text-xs text-slate-600 sm:flex-row sm:items-end sm:justify-between sm:text-sm"
+            >
+                <div class="space-y-2 text-center sm:text-left">
                     <img
                         v-if="logoUrl"
                         :src="logoUrl"
                         alt="Newspaper logo"
-                        class="mx-auto h-12 w-auto object-contain sm:mx-0 sm:h-14"
+                        class="mx-auto h-10 w-auto object-contain sm:mx-0 sm:h-12"
                     />
-                    <div v-else class="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 shadow-sm">
-                        <Newspaper class="size-4" />
-                        <span class="text-sm font-semibold">ePaper</span>
+                    <div v-else class="inline-flex items-center gap-2">
+                        <Newspaper class="size-4 text-slate-500" />
+                        <span class="text-sm font-semibold text-slate-700"
+                            >ePaper</span
+                        >
                     </div>
-                    <p>{{ settings.footer_copyright }}</p>
+                    <p class="text-slate-500">
+                        {{ settings.footer_copyright }}
+                    </p>
                 </div>
 
-                <div class="space-y-1 text-justify sm:max-w-[72%]">
+                <div
+                    class="max-w-lg space-y-1 text-center text-slate-500 sm:text-right"
+                >
                     <p>{{ settings.footer_editor_info }}</p>
                     <p>{{ settings.footer_contact_info }}</p>
                 </div>
@@ -1062,7 +1209,10 @@ onBeforeUnmount(() => {
             @close="closeHotspotModal"
         />
 
-        <div v-if="toastMessage !== ''" class="pointer-events-none fixed right-4 top-4 z-50 w-full max-w-sm">
+        <div
+            v-if="toastMessage !== ''"
+            class="pointer-events-none fixed top-4 right-4 z-50 w-full max-w-sm"
+        >
             <Alert variant="destructive" class="pointer-events-auto shadow-lg">
                 <AlertCircle class="size-4" />
                 <AlertDescription>{{ toastMessage }}</AlertDescription>
