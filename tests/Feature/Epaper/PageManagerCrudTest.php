@@ -337,3 +337,170 @@ test('page manager can upload pages with selected category', function () {
         'category_id' => $category->id,
     ]);
 });
+
+test('page manager can bulk delete hotspots and detach linked references', function () {
+    $operator = User::factory()->create();
+    $operator->assignRole('operator');
+
+    $edition = Edition::query()->create([
+        'edition_date' => '2026-02-20',
+        'status' => Edition::STATUS_DRAFT,
+        'created_by' => $operator->id,
+    ]);
+
+    $pageOne = Page::query()->create([
+        'edition_id' => $edition->id,
+        'page_no' => 1,
+        'category_id' => null,
+        'image_original_path' => 'epaper/2026-02-20/original/page-0001.jpg',
+        'image_large_path' => 'epaper/2026-02-20/large/page-0001.jpg',
+        'image_thumb_path' => 'epaper/2026-02-20/thumb/page-0001.jpg',
+        'width' => 2000,
+        'height' => 2600,
+        'uploaded_by' => $operator->id,
+    ]);
+
+    $pageTwo = Page::query()->create([
+        'edition_id' => $edition->id,
+        'page_no' => 2,
+        'category_id' => null,
+        'image_original_path' => 'epaper/2026-02-20/original/page-0002.jpg',
+        'image_large_path' => 'epaper/2026-02-20/large/page-0002.jpg',
+        'image_thumb_path' => 'epaper/2026-02-20/thumb/page-0002.jpg',
+        'width' => 2000,
+        'height' => 2600,
+        'uploaded_by' => $operator->id,
+    ]);
+
+    $sourceHotspot = PageHotspot::query()->create([
+        'page_id' => $pageOne->id,
+        'type' => 'relation',
+        'relation_kind' => 'next',
+        'target_page_no' => 2,
+        'target_hotspot_id' => null,
+        'linked_hotspot_id' => null,
+        'x' => 0.10,
+        'y' => 0.20,
+        'w' => 0.25,
+        'h' => 0.20,
+        'label' => 'Source hotspot',
+        'created_by' => $operator->id,
+    ]);
+
+    $targetHotspot = PageHotspot::query()->create([
+        'page_id' => $pageTwo->id,
+        'type' => 'relation',
+        'relation_kind' => 'previous',
+        'target_page_no' => 1,
+        'target_hotspot_id' => null,
+        'linked_hotspot_id' => null,
+        'x' => 0.40,
+        'y' => 0.20,
+        'w' => 0.20,
+        'h' => 0.15,
+        'label' => 'Target hotspot',
+        'created_by' => $operator->id,
+    ]);
+
+    $sourceHotspot->update([
+        'target_hotspot_id' => $targetHotspot->id,
+        'linked_hotspot_id' => $targetHotspot->id,
+    ]);
+    $targetHotspot->update([
+        'linked_hotspot_id' => $sourceHotspot->id,
+    ]);
+
+    $extraHotspot = PageHotspot::query()->create([
+        'page_id' => $pageOne->id,
+        'type' => 'relation',
+        'relation_kind' => 'next',
+        'target_page_no' => 2,
+        'target_hotspot_id' => null,
+        'linked_hotspot_id' => null,
+        'x' => 0.60,
+        'y' => 0.30,
+        'w' => 0.18,
+        'h' => 0.22,
+        'label' => 'Extra hotspot',
+        'created_by' => $operator->id,
+    ]);
+
+    $this->actingAs($operator)
+        ->post(route('epadmin.hotspots.bulk-destroy'), [
+            'page_id' => $pageOne->id,
+            'hotspot_ids' => [$sourceHotspot->id, $extraHotspot->id],
+        ])
+        ->assertRedirect(route('epadmin.hotspots.index', ['page_id' => $pageOne->id]));
+
+    $this->assertDatabaseMissing('page_hotspots', ['id' => $sourceHotspot->id]);
+    $this->assertDatabaseMissing('page_hotspots', ['id' => $extraHotspot->id]);
+    $this->assertDatabaseHas('page_hotspots', [
+        'id' => $targetHotspot->id,
+        'linked_hotspot_id' => null,
+    ]);
+});
+
+test('page manager bulk hotspot delete validates selected page ownership', function () {
+    $operator = User::factory()->create();
+    $operator->assignRole('operator');
+
+    $edition = Edition::query()->create([
+        'edition_date' => '2026-02-20',
+        'status' => Edition::STATUS_DRAFT,
+        'created_by' => $operator->id,
+    ]);
+
+    $pageOne = Page::query()->create([
+        'edition_id' => $edition->id,
+        'page_no' => 1,
+        'category_id' => null,
+        'image_original_path' => 'epaper/2026-02-20/original/page-0001.jpg',
+        'image_large_path' => 'epaper/2026-02-20/large/page-0001.jpg',
+        'image_thumb_path' => 'epaper/2026-02-20/thumb/page-0001.jpg',
+        'width' => 2000,
+        'height' => 2600,
+        'uploaded_by' => $operator->id,
+    ]);
+
+    $pageTwo = Page::query()->create([
+        'edition_id' => $edition->id,
+        'page_no' => 2,
+        'category_id' => null,
+        'image_original_path' => 'epaper/2026-02-20/original/page-0002.jpg',
+        'image_large_path' => 'epaper/2026-02-20/large/page-0002.jpg',
+        'image_thumb_path' => 'epaper/2026-02-20/thumb/page-0002.jpg',
+        'width' => 2000,
+        'height' => 2600,
+        'uploaded_by' => $operator->id,
+    ]);
+
+    $hotspotOnSecondPage = PageHotspot::query()->create([
+        'page_id' => $pageTwo->id,
+        'type' => 'relation',
+        'relation_kind' => 'next',
+        'target_page_no' => 1,
+        'target_hotspot_id' => null,
+        'linked_hotspot_id' => null,
+        'x' => 0.30,
+        'y' => 0.20,
+        'w' => 0.20,
+        'h' => 0.20,
+        'label' => 'Other page hotspot',
+        'created_by' => $operator->id,
+    ]);
+
+    $this->actingAs($operator)
+        ->from(route('epadmin.hotspots.index', ['page_id' => $pageOne->id]))
+        ->post(route('epadmin.hotspots.bulk-destroy'), [
+            'page_id' => $pageOne->id,
+            'hotspot_ids' => [$hotspotOnSecondPage->id],
+        ])
+        ->assertRedirect(route('epadmin.hotspots.index', ['page_id' => $pageOne->id]))
+        ->assertSessionHasErrors([
+            'hotspot_ids' => 'Some selected hotspots are no longer available on this page.',
+        ]);
+
+    $this->assertDatabaseHas('page_hotspots', [
+        'id' => $hotspotOnSecondPage->id,
+    ]);
+});

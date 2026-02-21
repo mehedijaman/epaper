@@ -1,6 +1,12 @@
 <script setup lang="ts">
-import { Head, router, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
+import EditionContextBar from '@/components/epaper/EditionContextBar.vue';
+import {
+    Alert,
+    AlertDescription,
+    AlertTitle,
+} from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -29,10 +35,17 @@ type EditionSummary = {
     pages_count: number;
 };
 
+type PublishReadiness = {
+    is_ready: boolean;
+    blockers: string[];
+};
+
 type Props = {
     date: string;
     date_error: string | null;
+    date_notice: string | null;
     edition: EditionSummary | null;
+    publish_readiness: PublishReadiness | null;
 };
 
 const props = defineProps<Props>();
@@ -62,6 +75,9 @@ watch(
 
 const hasEdition = computed(() => props.edition !== null);
 const isPublished = computed(() => props.edition?.status === 'published');
+const publishReadiness = computed(() => props.publish_readiness);
+const publishBlockers = computed(() => publishReadiness.value?.blockers ?? []);
+const canPublishDraftEdition = computed(() => publishReadiness.value?.is_ready === true);
 const statusBadgeVariant = computed(() => (isPublished.value ? 'default' : 'secondary'));
 const actionLabel = computed(() => (pendingAction.value === 'publish' ? 'Publish' : 'Unpublish'));
 const actionUrl = computed(() =>
@@ -69,6 +85,11 @@ const actionUrl = computed(() =>
         ? '/admin/editions/publish'
         : '/admin/editions/unpublish',
 );
+const publishButtonDisabled = computed(() => form.processing || !canPublishDraftEdition.value);
+const confirmActionDisabled = computed(() => (
+    form.processing
+    || (pendingAction.value === 'publish' && !canPublishDraftEdition.value)
+));
 const publishedAtText = computed(() => {
     const value = props.edition?.published_at;
 
@@ -78,6 +99,12 @@ const publishedAtText = computed(() => {
 
     return new Date(value).toLocaleString();
 });
+const manageSearchHref = computed(() => (
+    date.value !== '' ? `/admin/editions/manage?date=${date.value}` : '/admin/editions/manage'
+));
+const manageCreateHref = computed(() => (
+    date.value !== '' ? `/admin/editions/manage?date=${date.value}&create=1` : '/admin/editions/manage'
+));
 
 function searchByDate(): void {
     router.get(
@@ -95,6 +122,10 @@ function searchByDate(): void {
 
 function openConfirm(action: PublishAction): void {
     if (props.edition === null) {
+        return;
+    }
+
+    if (action === 'publish' && !canPublishDraftEdition.value) {
         return;
     }
 
@@ -133,54 +164,94 @@ function submitStatusChange(): void {
                     <CardTitle>Search edition by date</CardTitle>
                 </CardHeader>
                 <CardContent class="space-y-3">
-                    <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                         <Input v-model="date" type="date" class="sm:max-w-xs" />
                         <Button @click="searchByDate">Search</Button>
+                        <Button as-child variant="outline">
+                            <Link :href="manageSearchHref">Open in Manage Pages</Link>
+                        </Button>
                     </div>
                     <p v-if="props.date_error" class="text-sm text-destructive">
                         {{ props.date_error }}
                     </p>
+                    <p v-if="props.date_notice" class="text-sm text-muted-foreground">
+                        {{ props.date_notice }}
+                    </p>
                 </CardContent>
             </Card>
 
-            <Card v-if="hasEdition">
-                <CardHeader>
-                    <CardTitle class="flex flex-wrap items-center gap-2">
-                        <span>Edition {{ props.edition?.edition_date }}</span>
-                        <Badge :variant="statusBadgeVariant">
-                            {{ props.edition?.status }}
-                        </Badge>
-                    </CardTitle>
-                </CardHeader>
-                <CardContent class="space-y-4">
-                    <p class="text-sm text-muted-foreground">
-                        Pages count: {{ props.edition?.pages_count ?? 0 }}
-                    </p>
-                    <p v-if="publishedAtText" class="text-sm text-muted-foreground">
-                        Published at: {{ publishedAtText }}
-                    </p>
+            <div v-if="hasEdition" class="space-y-4">
+                <EditionContextBar
+                    v-if="props.edition"
+                    :edition-date="props.edition.edition_date"
+                    :status="props.edition.status"
+                    :pages-count="props.edition.pages_count"
+                    :published-at="props.edition.published_at"
+                    :manage-href="`/admin/editions/manage?date=${props.edition.edition_date}`"
+                    :publish-href="`/admin/editions/publish?date=${props.edition.edition_date}`"
+                />
 
-                    <Button
-                        v-if="isPublished"
-                        variant="destructive"
-                        :disabled="form.processing"
-                        @click="openConfirm('unpublish')"
-                    >
-                        Unpublish Edition
-                    </Button>
-                    <Button
-                        v-else
-                        :disabled="form.processing"
-                        @click="openConfirm('publish')"
-                    >
-                        Publish Edition
-                    </Button>
-                </CardContent>
-            </Card>
+                <Card>
+                    <CardHeader>
+                        <CardTitle class="flex flex-wrap items-center gap-2">
+                            <span>Edition {{ props.edition?.edition_date }}</span>
+                            <Badge :variant="statusBadgeVariant">
+                                {{ props.edition?.status }}
+                            </Badge>
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent class="space-y-4">
+                        <p class="text-sm text-muted-foreground">
+                            Pages count: {{ props.edition?.pages_count ?? 0 }}
+                        </p>
+                        <p v-if="publishedAtText" class="text-sm text-muted-foreground">
+                            Published at: {{ publishedAtText }}
+                        </p>
+                        <Alert
+                            v-if="!isPublished && publishBlockers.length > 0"
+                            class="border-destructive/40 text-destructive"
+                        >
+                            <AlertTitle>Cannot publish yet</AlertTitle>
+                            <AlertDescription>
+                                <ul class="list-disc space-y-1 pl-4 text-sm">
+                                    <li v-for="blocker in publishBlockers" :key="blocker">
+                                        {{ blocker }}
+                                    </li>
+                                </ul>
+                            </AlertDescription>
+                        </Alert>
+                        <p
+                            v-if="!isPublished && publishReadiness?.is_ready"
+                            class="text-sm text-muted-foreground"
+                        >
+                            This edition is ready to publish.
+                        </p>
+
+                        <Button
+                            v-if="isPublished"
+                            variant="destructive"
+                            :disabled="form.processing"
+                            @click="openConfirm('unpublish')"
+                        >
+                            Unpublish Edition
+                        </Button>
+                        <Button
+                            v-else
+                            :disabled="publishButtonDisabled"
+                            @click="openConfirm('publish')"
+                        >
+                            Publish Edition
+                        </Button>
+                    </CardContent>
+                </Card>
+            </div>
 
             <Card v-else>
-                <CardContent class="py-6 text-sm text-muted-foreground">
-                    Select a date and click Search to load or create an edition.
+                <CardContent class="space-y-3 py-6 text-sm text-muted-foreground">
+                    <p>Select a date and click Search to load an existing edition.</p>
+                    <Button as-child variant="outline" class="w-full sm:w-auto">
+                        <Link :href="manageCreateHref">Create draft edition in Manage Pages</Link>
+                    </Button>
                 </CardContent>
             </Card>
 
@@ -196,7 +267,7 @@ function submitStatusChange(): void {
                         <Button variant="outline" :disabled="form.processing" @click="confirmOpen = false">
                             Cancel
                         </Button>
-                        <Button :variant="pendingAction === 'publish' ? 'default' : 'destructive'" :disabled="form.processing" @click="submitStatusChange">
+                        <Button :variant="pendingAction === 'publish' ? 'default' : 'destructive'" :disabled="confirmActionDisabled" @click="submitStatusChange">
                             {{ actionLabel }}
                         </Button>
                     </DialogFooter>

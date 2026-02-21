@@ -62,6 +62,7 @@ Route::middleware(['auth'])->prefix('admin')->name('epadmin.')->group(function (
 
         Route::get('/hotspots', [PageHotspotController::class, 'index'])->name('hotspots.index');
         Route::post('/hotspots', [PageHotspotController::class, 'store'])->name('hotspots.store');
+        Route::post('/hotspots/bulk-delete', [PageHotspotController::class, 'bulkDestroy'])->name('hotspots.bulk-destroy');
         Route::put('/hotspots/{hotspot}', [PageHotspotController::class, 'update'])->name('hotspots.update');
         Route::delete('/hotspots/{hotspot}', [PageHotspotController::class, 'destroy'])->name('hotspots.destroy');
     });

@@ -166,3 +166,163 @@ test('edition manager can load edition using edition_id query', function () {
             ->where('date', '2026-02-21')
         );
 });
+
+test('searching a missing edition date does not auto-create in manage or publish', function () {
+    $operator = User::factory()->create();
+    $operator->assignRole('operator');
+
+    $this->actingAs($operator)
+        ->get(route('epadmin.editions.manage', ['date' => '2026-03-01']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('edition', null)
+            ->where('date_notice', 'No edition found for 2026-03-01. Click "Create draft edition" to start.')
+        );
+
+    $this->actingAs($operator)
+        ->get(route('epadmin.editions.publish.index', ['date' => '2026-03-01']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('edition', null)
+            ->where('date_notice', 'No edition found for 2026-03-01. Create it from Manage Pages first.')
+        );
+
+    $this->assertDatabaseCount('editions', 0);
+});
+
+test('manage date create flag creates draft edition explicitly', function () {
+    $operator = User::factory()->create();
+    $operator->assignRole('operator');
+
+    $this->actingAs($operator)
+        ->get(route('epadmin.editions.manage', ['date' => '2026-03-02', 'create' => 1]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('edition.edition_date', '2026-03-02')
+            ->where('edition.status', Edition::STATUS_DRAFT)
+            ->where('date_notice', null)
+        );
+
+    expect(
+        Edition::query()
+            ->forDate('2026-03-02')
+            ->where('status', Edition::STATUS_DRAFT)
+            ->exists()
+    )->toBeTrue();
+});
+
+test('publish page includes readiness blocker when edition has no pages', function () {
+    $operator = User::factory()->create();
+    $operator->assignRole('operator');
+
+    $edition = Edition::query()->create([
+        'edition_date' => CarbonImmutable::parse('2026-03-03')->startOfDay(),
+        'status' => Edition::STATUS_DRAFT,
+        'created_by' => $operator->id,
+    ]);
+
+    $this->actingAs($operator)
+        ->get(route('epadmin.editions.publish.index', ['date' => '2026-03-03']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('edition.id', $edition->id)
+            ->where('publish_readiness.is_ready', false)
+            ->where('publish_readiness.blockers', ['Add at least one page before publishing.'])
+        );
+});
+
+test('edition cannot be published when numbering has gaps', function () {
+    $operator = User::factory()->create();
+    $operator->assignRole('operator');
+
+    $edition = Edition::query()->create([
+        'edition_date' => CarbonImmutable::parse('2026-03-04')->startOfDay(),
+        'status' => Edition::STATUS_DRAFT,
+        'created_by' => $operator->id,
+    ]);
+
+    Page::query()->create([
+        'edition_id' => $edition->id,
+        'page_no' => 1,
+        'category_id' => null,
+        'image_original_path' => 'epaper/2026-03-04/original/page-0001.jpg',
+        'image_large_path' => 'epaper/2026-03-04/large/page-0001.jpg',
+        'image_thumb_path' => 'epaper/2026-03-04/thumb/page-0001.jpg',
+        'width' => 2000,
+        'height' => 2500,
+        'uploaded_by' => $operator->id,
+    ]);
+
+    Page::query()->create([
+        'edition_id' => $edition->id,
+        'page_no' => 3,
+        'category_id' => null,
+        'image_original_path' => 'epaper/2026-03-04/original/page-0003.jpg',
+        'image_large_path' => 'epaper/2026-03-04/large/page-0003.jpg',
+        'image_thumb_path' => 'epaper/2026-03-04/thumb/page-0003.jpg',
+        'width' => 2000,
+        'height' => 2500,
+        'uploaded_by' => $operator->id,
+    ]);
+
+    $this->actingAs($operator)
+        ->from(route('epadmin.editions.publish.index', ['date' => '2026-03-04']))
+        ->post(route('epadmin.editions.publish'), [
+            'edition_id' => $edition->id,
+        ])
+        ->assertRedirect(route('epadmin.editions.publish.index', ['date' => '2026-03-04']))
+        ->assertSessionHasErrors([
+            'edition_id' => 'Page numbering has a gap: missing page 2.',
+        ]);
+
+    $edition->refresh();
+
+    expect($edition->status)->toBe(Edition::STATUS_DRAFT)
+        ->and($edition->published_at)->toBeNull();
+});
+
+test('edition can be published when readiness checks pass', function () {
+    $operator = User::factory()->create();
+    $operator->assignRole('operator');
+
+    $edition = Edition::query()->create([
+        'edition_date' => CarbonImmutable::parse('2026-03-05')->startOfDay(),
+        'status' => Edition::STATUS_DRAFT,
+        'created_by' => $operator->id,
+    ]);
+
+    Page::query()->create([
+        'edition_id' => $edition->id,
+        'page_no' => 1,
+        'category_id' => null,
+        'image_original_path' => 'epaper/2026-03-05/original/page-0001.jpg',
+        'image_large_path' => 'epaper/2026-03-05/large/page-0001.jpg',
+        'image_thumb_path' => 'epaper/2026-03-05/thumb/page-0001.jpg',
+        'width' => 2000,
+        'height' => 2500,
+        'uploaded_by' => $operator->id,
+    ]);
+
+    Page::query()->create([
+        'edition_id' => $edition->id,
+        'page_no' => 2,
+        'category_id' => null,
+        'image_original_path' => 'epaper/2026-03-05/original/page-0002.jpg',
+        'image_large_path' => 'epaper/2026-03-05/large/page-0002.jpg',
+        'image_thumb_path' => 'epaper/2026-03-05/thumb/page-0002.jpg',
+        'width' => 2000,
+        'height' => 2500,
+        'uploaded_by' => $operator->id,
+    ]);
+
+    $this->actingAs($operator)
+        ->post(route('epadmin.editions.publish'), [
+            'edition_id' => $edition->id,
+        ])
+        ->assertRedirect(route('epadmin.editions.publish.index', ['date' => '2026-03-05']));
+
+    $edition->refresh();
+
+    expect($edition->status)->toBe(Edition::STATUS_PUBLISHED)
+        ->and($edition->published_at)->not->toBeNull();
+});

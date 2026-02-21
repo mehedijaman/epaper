@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import ConfirmActionDialog from '@/components/epaper/ConfirmActionDialog.vue';
+import EditionContextBar from '@/components/epaper/EditionContextBar.vue';
 import InputError from '@/components/InputError.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -62,9 +64,13 @@ type NormalizedRect = {
     h: number;
 };
 
+type AreaTransformHandle = 'move' | 'n' | 's' | 'e' | 'w' | 'nw' | 'ne' | 'sw' | 'se';
+type AreaResizeHandle = Exclude<AreaTransformHandle, 'move'>;
+
 type HotspotLinkState = 'none' | 'paired' | 'outbound' | 'inbound' | 'mismatch';
 type HotspotListFilter = 'all' | HotspotLinkState;
 type HotspotSortOption = 'id_asc' | 'id_desc' | 'target_page' | 'relation';
+type BulkDeletePreset = 'manual' | 'mismatch' | 'unlinked';
 
 type HotspotForm = {
     page_id: number;
@@ -112,6 +118,17 @@ const hotspotStateFilter = ref<HotspotListFilter>('all');
 const hotspotSort = ref<HotspotSortOption>('id_asc');
 const hotspotRowRefs = new Map<number, HTMLElement>();
 const areaEditHotspotId = ref<number | null>(null);
+const deleteDialogOpen = ref(false);
+const pendingDeleteHotspot = ref<Hotspot | null>(null);
+const selectedHotspotIds = ref<number[]>([]);
+const bulkDeleteDialogOpen = ref(false);
+const bulkDeletePreset = ref<BulkDeletePreset>('manual');
+const discardDialogOpen = ref(false);
+const hotspotDialogBaseline = ref<string | null>(null);
+const pendingPageSelectionId = ref<string | null>(null);
+const activeAreaTransformHandle = ref<AreaTransformHandle | null>(null);
+const areaTransformStartPoint = ref<NormalizedPoint | null>(null);
+const areaTransformStartRect = ref<NormalizedRect | null>(null);
 
 const hotspotForm = useForm<HotspotForm>({
     page_id: 0,
@@ -125,10 +142,19 @@ const hotspotForm = useForm<HotspotForm>({
     label: '',
 });
 
+const bulkDeleteForm = useForm<{
+    page_id: number;
+    hotspot_ids: number[];
+}>({
+    page_id: 0,
+    hotspot_ids: [],
+});
+
 const currentPage = computed(() => props.page);
 const currentHotspots = computed(() => currentPage.value?.hotspots ?? []);
 const currentPageNo = computed(() => currentPage.value?.page_no ?? 1);
 const hasPage = computed(() => currentPage.value !== null);
+const areaResizeHandles: AreaResizeHandle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
 const targetPageNumbers = computed<number[]>(() => {
     if (props.target_page_numbers.length > 0) {
         return props.target_page_numbers;
@@ -265,6 +291,64 @@ const filteredHotspots = computed(() => {
         );
     });
 });
+const selectedHotspotIdSet = computed(() => new Set(selectedHotspotIds.value));
+const selectedHotspotCount = computed(() => selectedHotspotIds.value.length);
+const visibleSelectedHotspotCount = computed(() => filteredHotspots.value.reduce(
+    (count, hotspot) => (selectedHotspotIdSet.value.has(hotspot.id) ? count + 1 : count),
+    0,
+));
+const hasSelectedHotspots = computed(() => selectedHotspotCount.value > 0);
+const areAllVisibleHotspotsSelected = computed(() => (
+    filteredHotspots.value.length > 0
+    && visibleSelectedHotspotCount.value === filteredHotspots.value.length
+));
+const hasDialogUnsavedChanges = computed(() => {
+    if (!isDialogOpen.value || hotspotDialogBaseline.value === null) {
+        return false;
+    }
+
+    return hotspotDialogBaseline.value !== serializeHotspotFormState();
+});
+const hasUnsavedWork = computed(() => hasDialogUnsavedChanges.value || draftRect.value !== null);
+const mismatchHotspotIds = computed(() => currentHotspots.value
+    .filter((hotspot) => hotspotLinkState(hotspot) === 'mismatch')
+    .map((hotspot) => hotspot.id));
+const unlinkedHotspotIds = computed(() => currentHotspots.value
+    .filter((hotspot) => hotspotLinkState(hotspot) === 'none')
+    .map((hotspot) => hotspot.id));
+const bulkDeleteDialogTitle = computed(() => {
+    if (bulkDeletePreset.value === 'mismatch') {
+        return 'Delete mismatch hotspots?';
+    }
+
+    if (bulkDeletePreset.value === 'unlinked') {
+        return 'Delete unlinked hotspots?';
+    }
+
+    return 'Delete selected hotspots?';
+});
+const bulkDeleteDialogConfirmText = computed(() => {
+    if (bulkDeletePreset.value === 'mismatch') {
+        return 'Delete mismatches';
+    }
+
+    if (bulkDeletePreset.value === 'unlinked') {
+        return 'Delete unlinked';
+    }
+
+    return 'Delete selected';
+});
+const bulkDeleteDialogDescription = computed(() => {
+    if (bulkDeletePreset.value === 'mismatch') {
+        return `Delete ${selectedHotspotCount.value} mismatch hotspot(s)? Linked references will be detached where needed. This action cannot be undone.`;
+    }
+
+    if (bulkDeletePreset.value === 'unlinked') {
+        return `Delete ${selectedHotspotCount.value} unlinked hotspot(s)? This action cannot be undone.`;
+    }
+
+    return `Delete ${selectedHotspotCount.value} selected hotspot(s)? Linked references will be detached where needed. This action cannot be undone.`;
+});
 const hotspotStats = computed(() => {
     const stats = {
         paired: 0,
@@ -288,6 +372,27 @@ const hasPreviousPage = computed(() => selectedPageIndex.value > 0);
 const hasNextPage = computed(
     () => selectedPageIndex.value >= 0 && selectedPageIndex.value < props.edition_pages.length - 1,
 );
+const manageHref = computed<string | undefined>(() => {
+    if (props.edition === null) {
+        return undefined;
+    }
+
+    return `/admin/editions/manage?date=${props.edition.edition_date}`;
+});
+const publishHref = computed<string | undefined>(() => {
+    if (props.edition === null) {
+        return undefined;
+    }
+
+    return `/admin/editions/publish?date=${props.edition.edition_date}`;
+});
+const mappingHref = computed<string | undefined>(() => {
+    if (selectedPageId.value === '') {
+        return '/admin/hotspots';
+    }
+
+    return `/admin/hotspots?page_id=${selectedPageId.value}`;
+});
 const hasActiveListControls = computed(
     () => hotspotSearch.value.trim() !== '' || hotspotStateFilter.value !== 'all' || hotspotSort.value !== 'id_asc',
 );
@@ -297,6 +402,17 @@ const areaEditTargetHotspot = computed<Hotspot | null>(() => {
     }
 
     return currentHotspots.value.find((hotspot) => hotspot.id === areaEditHotspotId.value) ?? null;
+});
+const areaEditDisplayRect = computed<NormalizedRect | null>(() => {
+    if (areaEditTargetHotspot.value === null) {
+        return null;
+    }
+
+    if (activeAreaTransformHandle.value !== null && draftRect.value !== null) {
+        return draftRect.value;
+    }
+
+    return areaEditTargetHotspot.value;
 });
 const areaEditOriginalSummary = computed(() => {
     if (areaEditTargetHotspot.value === null) {
@@ -331,6 +447,11 @@ watch(
         drawing.value = false;
         drawingStart.value = null;
         areaEditHotspotId.value = null;
+        resetAreaTransformState();
+        selectedHotspotIds.value = [];
+        bulkDeleteDialogOpen.value = false;
+        discardDialogOpen.value = false;
+        pendingPageSelectionId.value = null;
         void nextTick(() => {
             window.requestAnimationFrame(updateImageDimensions);
         });
@@ -377,11 +498,24 @@ watch(
     () => {
         tryOpenFocusedHotspot();
 
+        const existingIds = new Set(currentHotspots.value.map((hotspot) => hotspot.id));
+        const nextSelection = selectedHotspotIds.value.filter((hotspotId) => existingIds.has(hotspotId));
+
+        if (nextSelection.length !== selectedHotspotIds.value.length) {
+            selectedHotspotIds.value = nextSelection;
+        }
+
+        if (nextSelection.length === 0) {
+            bulkDeleteDialogOpen.value = false;
+        }
+
         if (
             areaEditHotspotId.value !== null
             && !currentHotspots.value.some((hotspot) => hotspot.id === areaEditHotspotId.value)
         ) {
             areaEditHotspotId.value = null;
+            resetAreaTransformState();
+            draftRect.value = null;
         }
     },
 );
@@ -404,6 +538,7 @@ onMounted(() => {
     window.addEventListener('keydown', onWindowKeydown);
     window.addEventListener('mousemove', onWindowMouseMove);
     window.addEventListener('mouseup', onWindowMouseUp);
+    window.addEventListener('beforeunload', onBeforeWindowUnload);
     updateImageDimensions();
 });
 
@@ -412,6 +547,7 @@ onBeforeUnmount(() => {
     window.removeEventListener('keydown', onWindowKeydown);
     window.removeEventListener('mousemove', onWindowMouseMove);
     window.removeEventListener('mouseup', onWindowMouseUp);
+    window.removeEventListener('beforeunload', onBeforeWindowUnload);
 });
 
 function clamp(value: number, min = 0, max = 1): number {
@@ -564,6 +700,12 @@ function onMouseDown(event: MouseEvent): void {
 }
 
 function onMouseMove(event: MouseEvent): void {
+    if (activeAreaTransformHandle.value !== null) {
+        event.preventDefault();
+        continueAreaTransform(event.clientX, event.clientY);
+        return;
+    }
+
     if (!drawing.value) {
         return;
     }
@@ -573,6 +715,12 @@ function onMouseMove(event: MouseEvent): void {
 }
 
 function onMouseUp(event: MouseEvent): void {
+    if (activeAreaTransformHandle.value !== null && event.button === 0) {
+        event.preventDefault();
+        finishAreaTransform();
+        return;
+    }
+
     if (!drawing.value) {
         return;
     }
@@ -582,6 +730,11 @@ function onMouseUp(event: MouseEvent): void {
 }
 
 function onWindowMouseMove(event: MouseEvent): void {
+    if (activeAreaTransformHandle.value !== null) {
+        continueAreaTransform(event.clientX, event.clientY);
+        return;
+    }
+
     if (!drawing.value) {
         return;
     }
@@ -590,6 +743,11 @@ function onWindowMouseMove(event: MouseEvent): void {
 }
 
 function onWindowMouseUp(event: MouseEvent): void {
+    if (activeAreaTransformHandle.value !== null && event.button === 0) {
+        finishAreaTransform();
+        return;
+    }
+
     if (!drawing.value || event.button !== 0) {
         return;
     }
@@ -614,10 +772,20 @@ function onTouchMove(event: TouchEvent): void {
         return;
     }
 
+    if (activeAreaTransformHandle.value !== null) {
+        continueAreaTransform(point.x, point.y);
+        return;
+    }
+
     continueDrawing(point.x, point.y);
 }
 
 function onTouchEnd(): void {
+    if (activeAreaTransformHandle.value !== null) {
+        finishAreaTransform();
+        return;
+    }
+
     endDrawing();
 }
 
@@ -628,6 +796,247 @@ function hotspotToStyle(rect: NormalizedRect): Record<string, string> {
         width: `${rect.w * imageDimensions.value.width}px`,
         height: `${rect.h * imageDimensions.value.height}px`,
     };
+}
+
+function resetAreaTransformState(): void {
+    activeAreaTransformHandle.value = null;
+    areaTransformStartPoint.value = null;
+    areaTransformStartRect.value = null;
+}
+
+function areaResizeHandleClass(handle: AreaResizeHandle): string {
+    if (handle === 'n' || handle === 's') {
+        return 'cursor-ns-resize';
+    }
+
+    if (handle === 'e' || handle === 'w') {
+        return 'cursor-ew-resize';
+    }
+
+    if (handle === 'nw' || handle === 'se') {
+        return 'cursor-nwse-resize';
+    }
+
+    return 'cursor-nesw-resize';
+}
+
+function areaResizeHandleStyle(handle: AreaResizeHandle): Record<string, string> {
+    if (handle === 'n') {
+        return { top: '-6px', left: '50%', transform: 'translate(-50%, -50%)' };
+    }
+
+    if (handle === 's') {
+        return { bottom: '-6px', left: '50%', transform: 'translate(-50%, 50%)' };
+    }
+
+    if (handle === 'e') {
+        return { top: '50%', right: '-6px', transform: 'translate(50%, -50%)' };
+    }
+
+    if (handle === 'w') {
+        return { top: '50%', left: '-6px', transform: 'translate(-50%, -50%)' };
+    }
+
+    if (handle === 'nw') {
+        return { top: '-6px', left: '-6px', transform: 'translate(-50%, -50%)' };
+    }
+
+    if (handle === 'ne') {
+        return { top: '-6px', right: '-6px', transform: 'translate(50%, -50%)' };
+    }
+
+    if (handle === 'sw') {
+        return { bottom: '-6px', left: '-6px', transform: 'translate(-50%, 50%)' };
+    }
+
+    return { bottom: '-6px', right: '-6px', transform: 'translate(50%, 50%)' };
+}
+
+function startAreaTransform(handle: AreaTransformHandle, clientX: number, clientY: number): void {
+    const editRect = areaEditTargetHotspot.value;
+
+    if (editRect === null) {
+        return;
+    }
+
+    const point = toNormalizedPoint(clientX, clientY);
+
+    if (point === null) {
+        return;
+    }
+
+    activeAreaTransformHandle.value = handle;
+    areaTransformStartPoint.value = point;
+    areaTransformStartRect.value = {
+        x: editRect.x,
+        y: editRect.y,
+        w: editRect.w,
+        h: editRect.h,
+    };
+    draftRect.value = {
+        x: editRect.x,
+        y: editRect.y,
+        w: editRect.w,
+        h: editRect.h,
+    };
+}
+
+function onAreaTransformMouseDown(handle: AreaTransformHandle, event: MouseEvent): void {
+    if (event.button !== 0) {
+        return;
+    }
+
+    event.preventDefault();
+    startAreaTransform(handle, event.clientX, event.clientY);
+}
+
+function onAreaTransformTouchStart(handle: AreaTransformHandle, event: TouchEvent): void {
+    const point = parseTouch(event);
+
+    if (point === null) {
+        return;
+    }
+
+    event.preventDefault();
+    startAreaTransform(handle, point.x, point.y);
+}
+
+function onHotspotOverlayMouseDown(hotspot: Hotspot, event: MouseEvent): void {
+    if (event.button !== 0) {
+        return;
+    }
+
+    event.preventDefault();
+
+    if (!drawModeEnabled.value) {
+        drawModeEnabled.value = true;
+    }
+
+    if (areaEditHotspotId.value !== hotspot.id) {
+        startAreaEditSelection(hotspot);
+    }
+
+    startAreaTransform('move', event.clientX, event.clientY);
+}
+
+function onHotspotOverlayTouchStart(hotspot: Hotspot, event: TouchEvent): void {
+    const point = parseTouch(event);
+
+    if (point === null) {
+        return;
+    }
+
+    event.preventDefault();
+
+    if (!drawModeEnabled.value) {
+        drawModeEnabled.value = true;
+    }
+
+    if (areaEditHotspotId.value !== hotspot.id) {
+        startAreaEditSelection(hotspot);
+    }
+
+    startAreaTransform('move', point.x, point.y);
+}
+
+function continueAreaTransform(clientX: number, clientY: number): void {
+    if (
+        activeAreaTransformHandle.value === null
+        || areaTransformStartPoint.value === null
+        || areaTransformStartRect.value === null
+    ) {
+        return;
+    }
+
+    const point = toNormalizedPoint(clientX, clientY);
+
+    if (point === null) {
+        return;
+    }
+
+    const startRect = areaTransformStartRect.value;
+    const handle = activeAreaTransformHandle.value;
+    const deltaX = point.x - areaTransformStartPoint.value.x;
+    const deltaY = point.y - areaTransformStartPoint.value.y;
+    const minSize = 0.005;
+
+    if (handle === 'move') {
+        const clampedX = clamp(startRect.x + deltaX, 0, Math.max(0, 1 - startRect.w));
+        const clampedY = clamp(startRect.y + deltaY, 0, Math.max(0, 1 - startRect.h));
+
+        draftRect.value = {
+            x: clampedX,
+            y: clampedY,
+            w: startRect.w,
+            h: startRect.h,
+        };
+
+        return;
+    }
+
+    let left = startRect.x;
+    let top = startRect.y;
+    let right = startRect.x + startRect.w;
+    let bottom = startRect.y + startRect.h;
+
+    if (handle.includes('w')) {
+        left = clamp(left + deltaX, 0, right - minSize);
+    }
+
+    if (handle.includes('e')) {
+        right = clamp(right + deltaX, left + minSize, 1);
+    }
+
+    if (handle.includes('n')) {
+        top = clamp(top + deltaY, 0, bottom - minSize);
+    }
+
+    if (handle.includes('s')) {
+        bottom = clamp(bottom + deltaY, top + minSize, 1);
+    }
+
+    draftRect.value = {
+        x: left,
+        y: top,
+        w: right - left,
+        h: bottom - top,
+    };
+}
+
+function finishAreaTransform(): void {
+    if (activeAreaTransformHandle.value === null) {
+        return;
+    }
+
+    const editHotspot = areaEditTargetHotspot.value;
+    const startRect = areaTransformStartRect.value;
+    const completedRect = draftRect.value;
+
+    resetAreaTransformState();
+
+    if (editHotspot === null || startRect === null || completedRect === null) {
+        draftRect.value = null;
+        return;
+    }
+
+    const hasMeaningfulChange = Math.abs(completedRect.x - startRect.x) > 0.000001
+        || Math.abs(completedRect.y - startRect.y) > 0.000001
+        || Math.abs(completedRect.w - startRect.w) > 0.000001
+        || Math.abs(completedRect.h - startRect.h) > 0.000001;
+
+    if (!hasMeaningfulChange) {
+        draftRect.value = null;
+        return;
+    }
+
+    areaEditHotspotId.value = null;
+    openEditDialog(editHotspot);
+    hotspotForm.x = completedRect.x;
+    hotspotForm.y = completedRect.y;
+    hotspotForm.w = completedRect.w;
+    hotspotForm.h = completedRect.h;
+    captureHotspotDialogBaseline();
+    draftRect.value = null;
 }
 
 function hotspotThumbnailImageStyle(hotspot: Hotspot): Record<string, string> {
@@ -828,6 +1237,27 @@ function hotspotOverlayTitle(hotspot: Hotspot): string {
     return `Target page ${hotspot.target_page_no} • ${hotspotLinkLabel(state)}`;
 }
 
+function normalizedNumberForSnapshot(value: number): number {
+    return Number.parseFloat(value.toFixed(6));
+}
+
+function serializeHotspotFormState(): string {
+    return JSON.stringify({
+        relation_kind: hotspotForm.relation_kind,
+        target_page_no: hotspotForm.target_page_no,
+        target_hotspot_id: hotspotForm.target_hotspot_id,
+        x: normalizedNumberForSnapshot(hotspotForm.x),
+        y: normalizedNumberForSnapshot(hotspotForm.y),
+        w: normalizedNumberForSnapshot(hotspotForm.w),
+        h: normalizedNumberForSnapshot(hotspotForm.h),
+        label: hotspotForm.label.trim(),
+    });
+}
+
+function captureHotspotDialogBaseline(): void {
+    hotspotDialogBaseline.value = serializeHotspotFormState();
+}
+
 function resetHotspotForm(): void {
     hotspotForm.page_id = currentPage.value?.id ?? 0;
     hotspotForm.relation_kind = 'next';
@@ -855,6 +1285,7 @@ function openCreateDialog(rect: NormalizedRect): void {
     hotspotForm.w = rect.w;
     hotspotForm.h = rect.h;
     isDialogOpen.value = true;
+    captureHotspotDialogBaseline();
 }
 
 function openEditDialog(hotspot: Hotspot): void {
@@ -886,6 +1317,7 @@ function openEditDialog(hotspot: Hotspot): void {
     hotspotForm.h = hotspot.h;
     hotspotForm.label = hotspot.label ?? '';
     isDialogOpen.value = true;
+    captureHotspotDialogBaseline();
 }
 
 function tryOpenFocusedHotspot(): void {
@@ -905,11 +1337,59 @@ function tryOpenFocusedHotspot(): void {
     pendingFocusHotspotId.value = null;
 }
 
-function closeDialog(): void {
+function finalizeDialogClose(): void {
     isDialogOpen.value = false;
     editingHotspotId.value = null;
     activeHotspotId.value = null;
+    discardDialogOpen.value = false;
+    hotspotDialogBaseline.value = null;
     hotspotForm.clearErrors();
+}
+
+function requestDialogClose(): void {
+    if (hotspotForm.processing) {
+        return;
+    }
+
+    if (hasDialogUnsavedChanges.value) {
+        discardDialogOpen.value = true;
+        return;
+    }
+
+    finalizeDialogClose();
+}
+
+function confirmDiscardDialogChanges(): void {
+    const pendingTargetPageId = pendingPageSelectionId.value;
+
+    finalizeDialogClose();
+
+    if (pendingTargetPageId !== null) {
+        pendingPageSelectionId.value = null;
+        draftRect.value = null;
+        drawing.value = false;
+        drawingStart.value = null;
+        areaEditHotspotId.value = null;
+        resetAreaTransformState();
+        navigateToPageSelection(pendingTargetPageId);
+    }
+}
+
+function onDiscardDialogOpenChange(open: boolean): void {
+    discardDialogOpen.value = open;
+
+    if (!open) {
+        pendingPageSelectionId.value = null;
+    }
+}
+
+function onHotspotDialogOpenChange(open: boolean): void {
+    if (open) {
+        isDialogOpen.value = true;
+        return;
+    }
+
+    requestDialogClose();
 }
 
 function openLinkedHotspot(hotspot: Hotspot): void {
@@ -964,7 +1444,7 @@ function saveHotspot(): void {
             preserveScroll: true,
             forceFormData: false,
             onSuccess: () => {
-                closeDialog();
+                finalizeDialogClose();
             },
         });
 
@@ -975,27 +1455,67 @@ function saveHotspot(): void {
         preserveScroll: true,
         forceFormData: false,
         onSuccess: () => {
-            closeDialog();
+            finalizeDialogClose();
         },
     });
 }
 
 function deleteHotspot(hotspot: Hotspot): void {
-    if (!window.confirm('Delete this hotspot?')) {
+    pendingDeleteHotspot.value = hotspot;
+    deleteDialogOpen.value = true;
+}
+
+function confirmDeleteHotspot(): void {
+    if (pendingDeleteHotspot.value === null) {
         return;
     }
 
-    router.delete(`/admin/hotspots/${hotspot.id}`, {
+    const hotspotToDelete = pendingDeleteHotspot.value;
+
+    router.delete(`/admin/hotspots/${hotspotToDelete.id}`, {
         preserveScroll: true,
+        onSuccess: () => {
+            deleteDialogOpen.value = false;
+            pendingDeleteHotspot.value = null;
+        },
     });
 }
 
-function onPageSelection(value: unknown): void {
-    if (value === null || value === undefined) {
+function onDeleteDialogOpenChange(open: boolean): void {
+    deleteDialogOpen.value = open;
+
+    if (!open) {
+        pendingDeleteHotspot.value = null;
+    }
+}
+
+watch(deleteDialogOpen, (isOpen) => {
+    if (isOpen) {
         return;
     }
 
-    const normalizedValue = String(value);
+    pendingDeleteHotspot.value = null;
+});
+
+watch(
+    currentHotspots,
+    (value) => {
+        if (pendingDeleteHotspot.value === null) {
+            return;
+        }
+
+        const stillExists = value.some((hotspot) => hotspot.id === pendingDeleteHotspot.value?.id);
+
+        if (stillExists) {
+            return;
+        }
+
+        pendingDeleteHotspot.value = null;
+        deleteDialogOpen.value = false;
+    },
+);
+
+function navigateToPageSelection(normalizedValue: string): void {
     selectedPageId.value = normalizedValue;
     const pageId = Number.parseInt(normalizedValue, 10);
 
@@ -1014,6 +1534,32 @@ function onPageSelection(value: unknown): void {
             replace: true,
         },
     );
+}
+
+function onPageSelection(value: unknown): void {
+    if (value === null || value === undefined) {
+        return;
+    }
+
+    const normalizedValue = String(value);
+
+    if (isDialogOpen.value) {
+        if (hasDialogUnsavedChanges.value) {
+            pendingPageSelectionId.value = normalizedValue;
+            discardDialogOpen.value = true;
+            return;
+        }
+
+        finalizeDialogClose();
+    }
+
+    draftRect.value = null;
+    drawing.value = false;
+    drawingStart.value = null;
+    areaEditHotspotId.value = null;
+    resetAreaTransformState();
+    pendingPageSelectionId.value = null;
+    navigateToPageSelection(normalizedValue);
 }
 
 function jumpToAdjacentPage(direction: 'previous' | 'next'): void {
@@ -1046,6 +1592,8 @@ function toggleDrawMode(): void {
 
     if (!drawModeEnabled.value) {
         areaEditHotspotId.value = null;
+        resetAreaTransformState();
+        draftRect.value = null;
     }
 }
 
@@ -1053,6 +1601,7 @@ function startAreaEditSelection(hotspot: Hotspot): void {
     areaEditHotspotId.value = hotspot.id;
     activeHotspotId.value = hotspot.id;
     drawModeEnabled.value = true;
+    resetAreaTransformState();
     draftRect.value = null;
     drawing.value = false;
     drawingStart.value = null;
@@ -1060,6 +1609,7 @@ function startAreaEditSelection(hotspot: Hotspot): void {
 
 function cancelAreaEditSelection(): void {
     areaEditHotspotId.value = null;
+    resetAreaTransformState();
     draftRect.value = null;
     drawing.value = false;
     drawingStart.value = null;
@@ -1076,7 +1626,7 @@ function requestAreaEditFromDialog(): void {
         return;
     }
 
-    closeDialog();
+    finalizeDialogClose();
     startAreaEditSelection(hotspot);
 }
 
@@ -1140,6 +1690,106 @@ function resetHotspotListControls(): void {
     hotspotSort.value = 'id_asc';
 }
 
+function toggleHotspotSelection(hotspotId: number): void {
+    const selection = new Set(selectedHotspotIds.value);
+
+    if (selection.has(hotspotId)) {
+        selection.delete(hotspotId);
+    } else {
+        selection.add(hotspotId);
+    }
+
+    selectedHotspotIds.value = [...selection].sort((left, right) => left - right);
+}
+
+function replaceSelectedHotspots(hotspotIds: number[]): void {
+    const normalizedSelection = [...new Set(hotspotIds)]
+        .filter((hotspotId) => Number.isInteger(hotspotId) && hotspotId > 0)
+        .sort((left, right) => left - right);
+
+    selectedHotspotIds.value = normalizedSelection;
+}
+
+function clearSelectedHotspots(): void {
+    replaceSelectedHotspots([]);
+}
+
+function selectMismatchHotspots(): void {
+    replaceSelectedHotspots(mismatchHotspotIds.value);
+}
+
+function selectUnlinkedHotspots(): void {
+    replaceSelectedHotspots(unlinkedHotspotIds.value);
+}
+
+function requestBulkDeletePreset(preset: BulkDeletePreset): void {
+    if (preset === 'mismatch') {
+        replaceSelectedHotspots(mismatchHotspotIds.value);
+    } else if (preset === 'unlinked') {
+        replaceSelectedHotspots(unlinkedHotspotIds.value);
+    }
+
+    requestBulkDeleteSelectedHotspots(preset);
+}
+
+function toggleSelectVisibleHotspots(): void {
+    const visibleIds = filteredHotspots.value.map((hotspot) => hotspot.id);
+
+    if (visibleIds.length === 0) {
+        return;
+    }
+
+    const selection = new Set(selectedHotspotIds.value);
+
+    if (areAllVisibleHotspotsSelected.value) {
+        for (const hotspotId of visibleIds) {
+            selection.delete(hotspotId);
+        }
+    } else {
+        for (const hotspotId of visibleIds) {
+            selection.add(hotspotId);
+        }
+    }
+
+    selectedHotspotIds.value = [...selection].sort((left, right) => left - right);
+}
+
+function requestBulkDeleteSelectedHotspots(preset: BulkDeletePreset = 'manual'): void {
+    if (!hasSelectedHotspots.value || currentPage.value === null || bulkDeleteForm.processing) {
+        return;
+    }
+
+    bulkDeletePreset.value = preset;
+    bulkDeleteDialogOpen.value = true;
+}
+
+function confirmBulkDeleteSelectedHotspots(): void {
+    if (!hasSelectedHotspots.value || currentPage.value === null) {
+        return;
+    }
+
+    bulkDeleteForm.page_id = currentPage.value.id;
+    bulkDeleteForm.hotspot_ids = [...selectedHotspotIds.value];
+
+    bulkDeleteForm.post('/admin/hotspots/bulk-delete', {
+        preserveScroll: true,
+        forceFormData: false,
+        onSuccess: () => {
+            bulkDeleteDialogOpen.value = false;
+            bulkDeletePreset.value = 'manual';
+            clearSelectedHotspots();
+        },
+    });
+}
+
+function onBulkDeleteDialogOpenChange(open: boolean): void {
+    bulkDeleteDialogOpen.value = open;
+
+    if (!open) {
+        bulkDeletePreset.value = 'manual';
+    }
+}
+
 function isEditableTarget(target: EventTarget | null): boolean {
     if (!(target instanceof HTMLElement)) {
         return false;
@@ -1151,6 +1801,13 @@ function isEditableTarget(target: EventTarget | null): boolean {
 
 function onWindowKeydown(event: KeyboardEvent): void {
     if (isDialogOpen.value || !hasPage.value || isEditableTarget(event.target)) {
+        return;
+    }
+
+    if (event.key === 'Escape' && activeAreaTransformHandle.value !== null) {
+        event.preventDefault();
+        resetAreaTransformState();
+        draftRect.value = null;
         return;
     }
 
@@ -1196,6 +1853,15 @@ function onWindowKeydown(event: KeyboardEvent): void {
         goToNextPage();
     }
 }
+
+function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
+    if (!hasUnsavedWork.value) {
+        return;
+    }
+
+    event.preventDefault();
+    event.returnValue = '';
+}
 </script>
 
 <template>
@@ -1227,6 +1893,18 @@ function onWindowKeydown(event: KeyboardEvent): void {
                     </div>
                 </CardHeader>
                 <CardContent class="space-y-4 p-4">
+                    <EditionContextBar
+                        v-if="props.edition"
+                        :edition-date="props.edition.edition_date"
+                        :status="props.edition.status"
+                        :pages-count="props.edition.pages_count"
+                        :published-at="props.edition.published_at"
+                        :current-page-no="currentPage?.page_no ?? null"
+                        :manage-href="manageHref"
+                        :publish-href="publishHref"
+                        :mapping-href="mappingHref"
+                    />
+
                     <div class="grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]">
                         <div class="space-y-3 rounded-lg border bg-background p-3">
                             <div class="flex items-center justify-between gap-2">
@@ -1275,6 +1953,40 @@ function onWindowKeydown(event: KeyboardEvent): void {
                             <p class="text-xs text-muted-foreground">
                                 Outbound {{ hotspotStats.outbound }} • Inbound {{ hotspotStats.inbound }} • Unlinked {{ hotspotStats.none }}
                             </p>
+                            <div class="mt-2 flex flex-wrap gap-2">
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    :disabled="mismatchHotspotIds.length === 0"
+                                    @click="selectMismatchHotspots"
+                                >
+                                    Select mismatch
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    :disabled="mismatchHotspotIds.length === 0"
+                                    @click="requestBulkDeletePreset('mismatch')"
+                                >
+                                    Delete mismatch
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    :disabled="unlinkedHotspotIds.length === 0"
+                                    @click="selectUnlinkedHotspots"
+                                >
+                                    Select unlinked
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    :disabled="unlinkedHotspotIds.length === 0"
+                                    @click="requestBulkDeletePreset('unlinked')"
+                                >
+                                    Delete unlinked
+                                </Button>
+                            </div>
                         </div>
                     </div>
 
@@ -1304,8 +2016,8 @@ function onWindowKeydown(event: KeyboardEvent): void {
                             >
                                 <div class="space-y-1">
                                     <p>
-                                    Area edit mode: drag on image to update hotspot #{{ areaEditTargetHotspot.id }}.
-                                    Press <span class="font-semibold">Esc</span> to cancel.
+                                        Area edit mode: drag the box to move hotspot #{{ areaEditTargetHotspot.id }}
+                                        or drag handles to scale in/out. Press <span class="font-semibold">Esc</span> to cancel.
                                     </p>
                                     <p v-if="areaEditOriginalSummary !== null" class="text-blue-800/90">
                                         Current area: x={{ areaEditOriginalSummary.x }}, y={{ areaEditOriginalSummary.y }},
@@ -1354,7 +2066,8 @@ function onWindowKeydown(event: KeyboardEvent): void {
                                             :title="hotspotOverlayTitle(hotspot)"
                                             @mouseenter="activeHotspotId = hotspot.id"
                                             @mouseleave="handleHotspotRowLeave(hotspot.id)"
-                                            @click.prevent="openEditDialog(hotspot)"
+                                            @mousedown.stop.prevent="onHotspotOverlayMouseDown(hotspot, $event)"
+                                            @touchstart.stop.prevent="onHotspotOverlayTouchStart(hotspot, $event)"
                                         >
                                             <span
                                                 v-if="hotspotLinkState(hotspot) !== 'none'"
@@ -1365,10 +2078,24 @@ function onWindowKeydown(event: KeyboardEvent): void {
                                         </button>
 
                                         <div
-                                            v-if="areaEditTargetHotspot !== null"
-                                            class="absolute rounded-sm border-2 border-dashed border-blue-700/85 bg-blue-600/10"
-                                            :style="hotspotToStyle(areaEditTargetHotspot)"
-                                        />
+                                            v-if="areaEditTargetHotspot !== null && areaEditDisplayRect !== null"
+                                            class="pointer-events-auto absolute rounded-sm border-2 border-dashed border-blue-700/85 bg-blue-600/10"
+                                            :class="activeAreaTransformHandle !== null ? 'cursor-grabbing' : 'cursor-move'"
+                                            :style="hotspotToStyle(areaEditDisplayRect)"
+                                            @mousedown.stop.prevent="onAreaTransformMouseDown('move', $event)"
+                                            @touchstart.stop.prevent="onAreaTransformTouchStart('move', $event)"
+                                        >
+                                            <button
+                                                v-for="handle in areaResizeHandles"
+                                                :key="`resize-handle-${handle}`"
+                                                type="button"
+                                                class="absolute z-10 h-3 w-3 rounded-full border border-white bg-blue-700 shadow-sm"
+                                                :class="areaResizeHandleClass(handle)"
+                                                :style="areaResizeHandleStyle(handle)"
+                                                @mousedown.stop.prevent="onAreaTransformMouseDown(handle, $event)"
+                                                @touchstart.stop.prevent="onAreaTransformTouchStart(handle, $event)"
+                                            />
+                                        </div>
 
                                         <div
                                             v-if="hasDraftRect && draftRect !== null"
@@ -1379,7 +2106,7 @@ function onWindowKeydown(event: KeyboardEvent): void {
                                     </div>
 
                                     <div
-                                        v-if="drawModeEnabled && imageDimensions.width > 0 && imageDimensions.height > 0"
+                                        v-if="drawModeEnabled && areaEditTargetHotspot === null && imageDimensions.width > 0 && imageDimensions.height > 0"
                                         class="absolute left-0 top-0 cursor-crosshair touch-none"
                                         :style="overlayStyle"
                                         @mousedown="onMouseDown"
@@ -1500,6 +2227,40 @@ function onWindowKeydown(event: KeyboardEvent): void {
                                         Reset filters
                                     </Button>
                                 </div>
+                                <div class="space-y-2 rounded-lg border bg-muted/20 p-2">
+                                    <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                                        <p>Selected {{ selectedHotspotCount }} hotspot(s)</p>
+                                        <p>
+                                            Visible selected {{ visibleSelectedHotspotCount }}/{{ filteredHotspots.length }}
+                                        </p>
+                                    </div>
+                                    <div class="flex flex-wrap gap-2">
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            :disabled="filteredHotspots.length === 0"
+                                            @click="toggleSelectVisibleHotspots"
+                                        >
+                                            {{ areAllVisibleHotspotsSelected ? 'Unselect shown' : 'Select shown' }}
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            :disabled="!hasSelectedHotspots"
+                                            @click="clearSelectedHotspots"
+                                        >
+                                            Clear selected
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="destructive"
+                                            :disabled="!hasSelectedHotspots || bulkDeleteForm.processing"
+                                            @click="requestBulkDeleteSelectedHotspots"
+                                        >
+                                            Delete selected
+                                        </Button>
+                                    </div>
+                                </div>
                             </div>
 
                             <div class="flex-1 space-y-3 overflow-y-auto p-3">
@@ -1510,7 +2271,10 @@ function onWindowKeydown(event: KeyboardEvent): void {
                                     role="button"
                                     tabindex="0"
                                     class="cursor-pointer space-y-3 rounded-lg border bg-card p-3 shadow-sm transition hover:border-primary/40"
-                                    :class="activeHotspotId === hotspot.id ? 'border-primary bg-primary/5' : ''"
+                                    :class="[
+                                        activeHotspotId === hotspot.id ? 'border-primary bg-primary/5' : '',
+                                        selectedHotspotIdSet.has(hotspot.id) ? 'border-destructive/40 bg-destructive/5' : '',
+                                    ]"
                                     @mouseenter="handleHotspotRowHover(hotspot.id)"
                                     @mouseleave="handleHotspotRowLeave(hotspot.id)"
                                     @focus="handleHotspotRowHover(hotspot.id)"
@@ -1520,6 +2284,18 @@ function onWindowKeydown(event: KeyboardEvent): void {
                                     @keydown.space.prevent="openEditDialog(hotspot)"
                                 >
                                     <div class="flex items-start gap-3">
+                                        <label
+                                            class="mt-1 flex items-center gap-2 text-xs text-muted-foreground"
+                                            @click.stop
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                class="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                                                :checked="selectedHotspotIdSet.has(hotspot.id)"
+                                                @change.stop="toggleHotspotSelection(hotspot.id)"
+                                            >
+                                            <span class="sr-only">Select hotspot {{ hotspot.id }}</span>
+                                        </label>
                                         <div class="relative h-16 w-24 shrink-0 overflow-hidden rounded-md border bg-muted/30">
                                             <img
                                                 v-if="imageSource !== ''"
@@ -1617,7 +2393,7 @@ function onWindowKeydown(event: KeyboardEvent): void {
                 </CardContent>
             </Card>
 
-            <Dialog v-model:open="isDialogOpen">
+            <Dialog :open="isDialogOpen" @update:open="onHotspotDialogOpenChange">
                 <DialogContent class="sm:max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>{{ hotspotDialogTitle }}</DialogTitle>
@@ -1625,6 +2401,9 @@ function onWindowKeydown(event: KeyboardEvent): void {
                             Configure relation, target page, and optionally a specific target hotspot.
                         </DialogDescription>
                     </DialogHeader>
+                    <p v-if="hasDialogUnsavedChanges" class="text-xs text-amber-700">
+                        You have unsaved changes in this hotspot form.
+                    </p>
 
                     <div class="space-y-4">
                         <div class="space-y-3 rounded-lg border bg-muted/20 p-3">
@@ -1729,7 +2508,7 @@ function onWindowKeydown(event: KeyboardEvent): void {
                     </div>
 
                     <DialogFooter>
-                        <Button variant="outline" :disabled="hotspotForm.processing" @click="closeDialog">
+                        <Button variant="outline" :disabled="hotspotForm.processing" @click="requestDialogClose">
                             Cancel
                         </Button>
                         <Button :disabled="hotspotForm.processing" @click="saveHotspot">
@@ -1738,6 +2517,39 @@ function onWindowKeydown(event: KeyboardEvent): void {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <ConfirmActionDialog
+                :open="deleteDialogOpen"
+                title="Delete hotspot?"
+                :description="pendingDeleteHotspot === null
+                    ? 'This action cannot be undone.'
+                    : `Delete hotspot #${pendingDeleteHotspot.id}? This action cannot be undone.`"
+                confirm-text="Delete"
+                confirm-variant="destructive"
+                @update:open="onDeleteDialogOpenChange"
+                @confirm="confirmDeleteHotspot"
+            />
+
+            <ConfirmActionDialog
+                :open="bulkDeleteDialogOpen"
+                :title="bulkDeleteDialogTitle"
+                :description="bulkDeleteDialogDescription"
+                :confirm-text="bulkDeleteDialogConfirmText"
+                confirm-variant="destructive"
+                :processing="bulkDeleteForm.processing"
+                @update:open="onBulkDeleteDialogOpenChange"
+                @confirm="confirmBulkDeleteSelectedHotspots"
+            />
+
+            <ConfirmActionDialog
+                :open="discardDialogOpen"
+                title="Discard unsaved changes?"
+                description="Your hotspot form has unsaved changes. Discard them and close?"
+                confirm-text="Discard changes"
+                confirm-variant="destructive"
+                @update:open="onDiscardDialogOpenChange"
+                @confirm="confirmDiscardDialogChanges"
+            />
         </div>
     </EpAdminLayout>
 </template>

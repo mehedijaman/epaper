@@ -21,10 +21,12 @@ class EditionManageController extends Controller
         $rawDate = $request->query('date');
         $date = is_string($rawDate) ? trim($rawDate) : '';
         $selectedEditionId = $this->parseEditionId($request->query('edition_id'));
+        $createRequested = $request->boolean('create');
 
         $editionData = null;
         $pagesData = [];
         $dateError = null;
+        $dateNotice = null;
         $edition = null;
 
         if ($selectedEditionId !== null) {
@@ -37,10 +39,23 @@ class EditionManageController extends Controller
             if ($normalizedDate === null) {
                 $dateError = 'Invalid date format. Use YYYY-MM-DD.';
             } else {
-                $edition = $this->findOrCreateEditionForDate(
-                    $normalizedDate,
-                    (int) $request->user()->id,
-                );
+                $existingEdition = Edition::query()
+                    ->forDate($normalizedDate->toDateString())
+                    ->first();
+
+                if ($existingEdition instanceof Edition) {
+                    $edition = $existingEdition;
+                } elseif ($createRequested) {
+                    $edition = $this->findOrCreateEditionForDate(
+                        $normalizedDate,
+                        (int) $request->user()->id,
+                    );
+                } else {
+                    $dateNotice = sprintf(
+                        'No edition found for %s. Click "Create draft edition" to start.',
+                        $normalizedDate->toDateString(),
+                    );
+                }
             }
         }
 
@@ -85,6 +100,7 @@ class EditionManageController extends Controller
         return Inertia::render('EpAdmin/Editions/Manage', [
             'date' => $date,
             'date_error' => $dateError,
+            'date_notice' => $dateNotice,
             'selected_edition_id' => $selectedEditionId,
             'edition' => $editionData,
             'pages' => $pagesData,

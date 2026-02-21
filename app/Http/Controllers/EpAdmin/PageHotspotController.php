@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\EpAdmin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\EpAdmin\HotspotBulkDestroyRequest;
 use App\Http\Requests\EpAdmin\HotspotStoreRequest;
 use App\Http\Requests\EpAdmin\HotspotUpdateRequest;
 use App\Models\Page;
@@ -12,6 +13,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -149,31 +151,50 @@ class PageHotspotController extends Controller
     {
         $this->authorize('delete', $hotspot);
         $pageId = $hotspot->page_id;
-        $hotspotId = $hotspot->id;
-        $targetHotspotId = $hotspot->target_hotspot_id;
 
-        DB::transaction(function () use ($hotspot, $hotspotId, $targetHotspotId): void {
-            if ($targetHotspotId !== null) {
-                PageHotspot::query()
-                    ->whereKey($targetHotspotId)
-                    ->where('linked_hotspot_id', $hotspotId)
-                    ->update(['linked_hotspot_id' => null]);
-            }
-
-            PageHotspot::query()
-                ->where('target_hotspot_id', $hotspotId)
-                ->update(['target_hotspot_id' => null, 'linked_hotspot_id' => null]);
-
-            PageHotspot::query()
-                ->where('linked_hotspot_id', $hotspotId)
-                ->update(['linked_hotspot_id' => null]);
-
-            $hotspot->delete();
+        DB::transaction(function () use ($hotspot): void {
+            $this->deleteHotspotAndDetachLinks($hotspot);
         });
 
         return redirect()
             ->route('epadmin.hotspots.index', ['page_id' => $pageId])
             ->with('success', 'Hotspot deleted successfully.');
+    }
+
+    public function bulkDestroy(HotspotBulkDestroyRequest $request): RedirectResponse
+    {
+        $validated = $request->validated();
+        $pageId = (int) $validated['page_id'];
+        $hotspotIds = collect($validated['hotspot_ids'])
+            ->map(fn (mixed $value): int => (int) $value)
+            ->values();
+
+        /** @var Collection<int, PageHotspot> $hotspots */
+        $hotspots = PageHotspot::query()
+            ->where('page_id', $pageId)
+            ->whereIn('id', $hotspotIds)
+            ->orderBy('id')
+            ->get();
+
+        if ($hotspots->count() !== $hotspotIds->count()) {
+            throw ValidationException::withMessages([
+                'hotspot_ids' => 'Some selected hotspots are no longer available on this page.',
+            ]);
+        }
+
+        foreach ($hotspots as $hotspot) {
+            $this->authorize('delete', $hotspot);
+        }
+
+        DB::transaction(function () use ($hotspots): void {
+            foreach ($hotspots as $hotspot) {
+                $this->deleteHotspotAndDetachLinks($hotspot);
+            }
+        });
+
+        return redirect()
+            ->route('epadmin.hotspots.index', ['page_id' => $pageId])
+            ->with('success', sprintf('%d hotspot(s) deleted successfully.', $hotspots->count()));
     }
 
     private function resolvePage(Request $request): ?Page
@@ -302,5 +323,28 @@ class PageHotspotController extends Controller
         PageHotspot::query()
             ->whereKey($targetHotspotId)
             ->update(['linked_hotspot_id' => $sourceId]);
+    }
+
+    private function deleteHotspotAndDetachLinks(PageHotspot $hotspot): void
+    {
+        $hotspotId = $hotspot->id;
+        $targetHotspotId = $hotspot->target_hotspot_id;
+
+        if ($targetHotspotId !== null) {
+            PageHotspot::query()
+                ->whereKey($targetHotspotId)
+                ->where('linked_hotspot_id', $hotspotId)
+                ->update(['linked_hotspot_id' => null]);
+        }
+
+        PageHotspot::query()
+            ->where('target_hotspot_id', $hotspotId)
+            ->update(['target_hotspot_id' => null, 'linked_hotspot_id' => null]);
+
+        PageHotspot::query()
+            ->where('linked_hotspot_id', $hotspotId)
+            ->update(['linked_hotspot_id' => null]);
+
+        $hotspot->delete();
     }
 }

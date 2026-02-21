@@ -2,6 +2,8 @@
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { GripVertical, Pencil, Trash2 } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
+import ConfirmActionDialog from '@/components/epaper/ConfirmActionDialog.vue';
+import EditionContextBar from '@/components/epaper/EditionContextBar.vue';
 import MultiPageUploadForm from '@/components/epaper/MultiPageUploadForm.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -47,6 +49,7 @@ type EditionOption = {
 type Props = {
     date: string;
     date_error: string | null;
+    date_notice: string | null;
     selected_edition_id: number | null;
     edition_options: EditionOption[];
     edition: EditionSummary | null;
@@ -82,7 +85,7 @@ watch(
 );
 
 const editionPages = computed<Page[]>(() => props.pages ?? []);
-const pages = ref<Page[]>([]);
+const orderedPages = ref<Page[]>([]);
 const hasEdition = computed(() => props.edition !== null);
 const editionId = computed<number>(() => props.edition?.id ?? 0);
 const activePageId = ref<number | null>(null);
@@ -91,13 +94,17 @@ const replaceInputKey = ref(0);
 const replacementFileName = ref('');
 const draggedPageId = ref<number | null>(null);
 const dropIndex = ref<number | null>(null);
+const deleteDialogOpen = ref(false);
+const pendingDeletePage = ref<Page | null>(null);
+const pendingUndoOrderIds = ref<number[] | null>(null);
+const reorderNotice = ref<string | null>(null);
 
 const activePage = computed<Page | null>(() => {
     if (activePageId.value === null) {
         return null;
     }
 
-    return pages.value.find((page) => page.id === activePageId.value) ?? null;
+    return orderedPages.value.find((page) => page.id === activePageId.value) ?? null;
 });
 
 const updateForm = useForm<{
@@ -146,23 +153,33 @@ const selectedCategoryValue = computed<string>({
 });
 
 const hasOrderChanges = computed(() => {
-    if (pages.value.length !== editionPages.value.length) {
+    if (orderedPages.value.length !== editionPages.value.length) {
         return false;
     }
 
-    return pages.value.some((page, index) => page.id !== editionPages.value[index]?.id);
-});
-
-const statusBadgeVariant = computed<'default' | 'secondary'>(() => {
-    return props.edition?.status === 'published' ? 'default' : 'secondary';
+    return orderedPages.value.some((page, index) => page.id !== editionPages.value[index]?.id);
 });
 
 const isDragging = computed(() => draggedPageId.value !== null);
+const hasUndoOrderAvailable = computed(() => {
+    if (pendingUndoOrderIds.value === null || reorderForm.processing) {
+        return false;
+    }
+
+    const currentPageIds = editionPages.value.map((page) => page.id).sort((left, right) => left - right);
+    const undoPageIds = [...pendingUndoOrderIds.value].sort((left, right) => left - right);
+
+    if (currentPageIds.length !== undoPageIds.length) {
+        return false;
+    }
+
+    return currentPageIds.every((id, index) => id === undoPageIds[index]);
+});
 
 watch(
     editionPages,
     (value) => {
-        pages.value = [...value].sort((a, b) => a.page_no - b.page_no);
+        orderedPages.value = [...value].sort((a, b) => a.page_no - b.page_no);
     },
     { immediate: true },
 );
@@ -179,6 +196,23 @@ function searchByDate(): void {
             edition_id: Number.isFinite(parsedEditionId) && parsedEditionId > 0
                 ? parsedEditionId
                 : undefined,
+            create: undefined,
+        },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            replace: true,
+        },
+    );
+}
+
+function createEditionByDate(): void {
+    router.get(
+        '/admin/editions/manage',
+        {
+            date: date.value !== '' ? date.value : undefined,
+            edition_id: undefined,
+            create: date.value !== '' ? 1 : undefined,
         },
         {
             preserveScroll: true,
@@ -235,7 +269,7 @@ function refreshAfterUpload(): void {
 }
 
 function movePageToIndex(sourcePageId: number, targetIndex: number): boolean {
-    const current = [...pages.value];
+    const current = [...orderedPages.value];
     const sourceIndex = current.findIndex((item) => item.id === sourcePageId);
 
     if (sourceIndex < 0) {
@@ -257,13 +291,13 @@ function movePageToIndex(sourcePageId: number, targetIndex: number): boolean {
     insertionIndex = Math.max(0, Math.min(insertionIndex, current.length));
     current.splice(insertionIndex, 0, moved);
 
-    const changed = current.some((item, index) => item.id !== pages.value[index]?.id);
+    const changed = current.some((item, index) => item.id !== orderedPages.value[index]?.id);
 
     if (!changed) {
         return false;
     }
 
-    pages.value = current;
+    orderedPages.value = current;
 
     return true;
 }
@@ -275,7 +309,7 @@ function onPageDragStart(pageId: number, event: DragEvent): void {
     }
 
     draggedPageId.value = pageId;
-    const sourceIndex = pages.value.findIndex((item) => item.id === pageId);
+    const sourceIndex = orderedPages.value.findIndex((item) => item.id === pageId);
     dropIndex.value = sourceIndex >= 0 ? sourceIndex : null;
 
     if (event.dataTransfer === null) {
@@ -292,7 +326,7 @@ function onDropZoneDragOver(targetIndex: number, event: DragEvent): void {
     }
 
     event.preventDefault();
-    dropIndex.value = Math.max(0, Math.min(targetIndex, pages.value.length));
+    dropIndex.value = Math.max(0, Math.min(targetIndex, orderedPages.value.length));
 
     if (event.dataTransfer !== null) {
         event.dataTransfer.dropEffect = 'move';
@@ -346,7 +380,7 @@ function onDropZoneDrop(targetIndex: number, event: DragEvent): void {
         return;
     }
 
-    persistPageOrder();
+    reorderNotice.value = null;
 }
 
 function onPageDragEnd(): void {
@@ -362,17 +396,49 @@ function isDropZoneActive(index: number): boolean {
     return draggedPageId.value !== null && dropIndex.value === index;
 }
 
-function persistPageOrder(): void {
+function savePageOrder(): void {
     if (!hasEdition.value || !hasOrderChanges.value) {
         return;
     }
 
+    reorderNotice.value = null;
+    const previousOrderPageIds = editionPages.value.map((page) => page.id);
+
     reorderForm.edition_id = editionId.value;
-    reorderForm.ordered_page_ids = pages.value.map((page) => page.id);
+    reorderForm.ordered_page_ids = orderedPages.value.map((page) => page.id);
 
     reorderForm.post('/admin/pages/reorder', {
         preserveScroll: true,
         preserveState: true,
+        onSuccess: () => {
+            pendingUndoOrderIds.value = previousOrderPageIds;
+            reorderNotice.value = 'Page order saved.';
+        },
+    });
+}
+
+function revertOrderDraft(): void {
+    orderedPages.value = [...editionPages.value].sort((left, right) => left.page_no - right.page_no);
+    reorderForm.clearErrors('ordered_page_ids');
+    reorderNotice.value = null;
+}
+
+function undoLastOrderSave(): void {
+    if (!hasEdition.value || pendingUndoOrderIds.value === null || !hasUndoOrderAvailable.value) {
+        return;
+    }
+
+    reorderNotice.value = null;
+    reorderForm.edition_id = editionId.value;
+    reorderForm.ordered_page_ids = [...pendingUndoOrderIds.value];
+
+    reorderForm.post('/admin/pages/reorder', {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => {
+            pendingUndoOrderIds.value = null;
+            reorderNotice.value = 'Reverted to the previous order.';
+        },
     });
 }
 
@@ -444,14 +510,104 @@ function replacePageImage(): void {
 }
 
 function deletePage(page: Page): void {
-    if (!window.confirm(`Delete page ${page.page_no}? This also removes its hotspots.`)) {
+    if (isEditDialogOpen.value && activePage.value?.id === page.id) {
+        closeEditDialog();
+    }
+
+    pendingDeletePage.value = page;
+    deleteDialogOpen.value = true;
+}
+
+function confirmDeletePage(): void {
+    if (pendingDeletePage.value === null) {
         return;
     }
 
-    router.delete(`/admin/pages/${page.id}`, {
+    const pageToDelete = pendingDeletePage.value;
+
+    router.delete(`/admin/pages/${pageToDelete.id}`, {
         preserveScroll: true,
+        onSuccess: () => {
+            deleteDialogOpen.value = false;
+            pendingDeletePage.value = null;
+        },
     });
 }
+
+function onDeleteDialogOpenChange(open: boolean): void {
+    deleteDialogOpen.value = open;
+
+    if (!open) {
+        pendingDeletePage.value = null;
+    }
+}
+
+const mappingHref = computed<string | undefined>(() => {
+    const firstPage = orderedPages.value[0];
+
+    if (firstPage === undefined) {
+        return undefined;
+    }
+
+    return `/admin/hotspots?page_id=${firstPage.id}`;
+});
+
+const publishHref = computed<string | undefined>(() => {
+    if (props.edition === null) {
+        return undefined;
+    }
+
+    return `/admin/editions/publish?date=${props.edition.edition_date}`;
+});
+
+const manageHref = computed<string | undefined>(() => {
+    if (props.edition === null) {
+        return undefined;
+    }
+
+    return `/admin/editions/manage?date=${props.edition.edition_date}`;
+});
+
+watch(deleteDialogOpen, (isOpen) => {
+    if (isOpen) {
+        return;
+    }
+
+    pendingDeletePage.value = null;
+});
+
+watch(
+    () => props.pages,
+    () => {
+        if (pendingDeletePage.value === null) {
+            return;
+        }
+
+        const stillExists = props.pages.some((page) => page.id === pendingDeletePage.value?.id);
+
+        if (!stillExists) {
+            pendingDeletePage.value = null;
+            deleteDialogOpen.value = false;
+        }
+    },
+);
+
+watch(
+    () => editionId.value,
+    () => {
+        pendingUndoOrderIds.value = null;
+        reorderNotice.value = null;
+        reorderForm.clearErrors('ordered_page_ids');
+    },
+);
+
+watch(hasUndoOrderAvailable, (value) => {
+    if (value || pendingUndoOrderIds.value === null) {
+        return;
+    }
+
+    pendingUndoOrderIds.value = null;
+});
 
 watch(isEditDialogOpen, (isOpen) => {
     if (isOpen) {
@@ -475,7 +631,7 @@ watch(isEditDialogOpen, (isOpen) => {
                     </p>
                 </div>
                 <p class="text-xs text-muted-foreground">
-                    Autosave order is enabled.
+                    Drag to reorder, then save explicitly.
                 </p>
             </div>
 
@@ -511,34 +667,45 @@ watch(isEditDialogOpen, (isOpen) => {
                                 </SelectContent>
                             </Select>
                         </div>
-                        <Button class="w-full md:w-auto xl:min-w-28" @click="searchByDate">Search</Button>
+                        <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+                            <Button class="w-full md:w-auto xl:min-w-28" @click="searchByDate">
+                                Search
+                            </Button>
+                            <Button
+                                class="w-full md:w-auto xl:min-w-28"
+                                variant="outline"
+                                :disabled="date === ''"
+                                @click="createEditionByDate"
+                            >
+                                Create draft edition
+                            </Button>
+                        </div>
                     </div>
                     <p v-if="props.date_error" class="text-sm text-destructive">
                         {{ props.date_error }}
+                    </p>
+                    <p v-if="props.date_notice" class="text-sm text-muted-foreground">
+                        {{ props.date_notice }}
                     </p>
                 </CardContent>
             </Card>
 
             <div v-if="hasEdition" class="space-y-4">
-                <Card class="border-border/70">
-                    <CardHeader class="pb-2">
-                        <CardTitle class="flex flex-wrap items-center gap-2">
-                            <span>Edition {{ props.edition?.edition_date }}</span>
-                            <Badge :variant="statusBadgeVariant">
-                                {{ props.edition?.status }}
-                            </Badge>
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent class="grid gap-3 text-sm text-muted-foreground sm:grid-cols-3">
-                        <p>Pages: {{ pages.length }}</p>
-                        <p>Categories loaded: {{ props.categories.length }}</p>
-                        <p>Edition ID: {{ props.edition?.id }}</p>
-                    </CardContent>
-                </Card>
+                <EditionContextBar
+                    v-if="props.edition"
+                    :edition-date="props.edition.edition_date"
+                    :status="props.edition.status"
+                    :pages-count="orderedPages.length"
+                    :published-at="props.edition.published_at"
+                    :manage-href="manageHref"
+                    :publish-href="publishHref"
+                    :mapping-href="mappingHref"
+                />
 
                 <MultiPageUploadForm
                     :edition-id="editionId"
                     :categories="props.categories"
+                    :existing-page-numbers="orderedPages.map((page) => page.page_no)"
                     @uploaded="refreshAfterUpload"
                 />
 
@@ -546,23 +713,64 @@ watch(isEditDialogOpen, (isOpen) => {
                     <CardHeader class="pb-2">
                         <CardTitle class="flex flex-wrap items-center gap-2">
                             <span>Uploaded pages</span>
-                            <Badge variant="secondary">{{ pages.length }}</Badge>
+                            <Badge variant="secondary">{{ orderedPages.length }}</Badge>
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <p class="mb-3 text-xs text-muted-foreground">
-                            Use the drag handle to move pages before or after others. New order is saved immediately.
+                            Use the drag handle to reorder pages. Save changes when you are ready.
                         </p>
 
                         <p v-if="reorderForm.processing" class="mb-3 text-xs text-muted-foreground">
-                            Saving new order...
+                            Saving order...
                         </p>
 
                         <p v-if="reorderForm.errors.ordered_page_ids" class="mb-3 text-sm text-destructive">
                             {{ reorderForm.errors.ordered_page_ids }}
                         </p>
 
-                        <div v-if="pages.length === 0" class="text-sm text-muted-foreground">
+                        <div
+                            v-if="hasOrderChanges || hasUndoOrderAvailable || reorderNotice"
+                            class="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-border/70 bg-muted/20 px-3 py-2"
+                        >
+                            <Badge v-if="hasOrderChanges" variant="secondary">
+                                Unsaved order changes
+                            </Badge>
+                            <p v-else-if="reorderNotice" class="text-xs text-muted-foreground">
+                                {{ reorderNotice }}
+                            </p>
+
+                            <div class="ml-auto flex flex-wrap gap-2">
+                                <Button
+                                    v-if="hasOrderChanges"
+                                    size="sm"
+                                    :disabled="reorderForm.processing"
+                                    @click="savePageOrder"
+                                >
+                                    Save order
+                                </Button>
+                                <Button
+                                    v-if="hasOrderChanges"
+                                    size="sm"
+                                    variant="outline"
+                                    :disabled="reorderForm.processing"
+                                    @click="revertOrderDraft"
+                                >
+                                    Cancel changes
+                                </Button>
+                                <Button
+                                    v-if="!hasOrderChanges && hasUndoOrderAvailable"
+                                    size="sm"
+                                    variant="outline"
+                                    :disabled="reorderForm.processing"
+                                    @click="undoLastOrderSave"
+                                >
+                                    Undo last save
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div v-if="orderedPages.length === 0" class="text-sm text-muted-foreground">
                             No pages uploaded for this edition yet.
                         </div>
 
@@ -574,7 +782,7 @@ watch(isEditDialogOpen, (isOpen) => {
                                 @drop="onDropZoneDrop(0, $event)"
                             />
 
-                            <template v-for="(page, index) in pages" :key="page.id">
+                            <template v-for="(page, index) in orderedPages" :key="page.id">
                                 <article
                                     class="group rounded-xl border border-border/70 bg-card p-3 transition-shadow hover:shadow-sm"
                                     :class="draggedPageId === page.id ? 'opacity-60' : ''"
@@ -761,6 +969,18 @@ watch(isEditDialogOpen, (isOpen) => {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <ConfirmActionDialog
+                :open="deleteDialogOpen"
+                title="Delete page?"
+                :description="pendingDeletePage === null
+                    ? 'This also removes related hotspots.'
+                    : `Delete page ${pendingDeletePage.page_no}? This also removes related hotspots.`"
+                confirm-text="Delete"
+                confirm-variant="destructive"
+                @update:open="onDeleteDialogOpenChange"
+                @confirm="confirmDeletePage"
+            />
         </div>
     </EpAdminLayout>
 </template>
