@@ -18,6 +18,7 @@ class PageUploadRequest extends FormRequest
     {
         return [
             'edition_id' => ['required', 'integer', 'exists:editions,id'],
+            'category_id' => ['nullable', 'integer', 'exists:categories,id'],
             'page_no_strategy' => ['nullable', 'string', 'in:auto,filename,next_available'],
             'files' => ['required', 'array', 'min:1'],
             'files.*' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:30720'],

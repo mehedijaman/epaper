@@ -1278,7 +1278,7 @@ function onWindowKeydown(event: KeyboardEvent): void {
                         </div>
                     </div>
 
-                    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
+                    <div class="grid items-stretch gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
                         <div class="space-y-3">
                             <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-background px-3 py-2 text-xs">
                                 <div class="flex flex-wrap items-center gap-2">
@@ -1400,7 +1400,7 @@ function onWindowKeydown(event: KeyboardEvent): void {
                             </div>
                         </div>
 
-                        <div class="flex min-h-[24rem] flex-col rounded-xl border bg-background xl:sticky xl:top-4 xl:max-h-[calc(100vh-10rem)]">
+                        <div class="flex h-full min-h-[24rem] min-h-0 flex-col overflow-hidden rounded-xl border bg-background">
                             <div class="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
                                 <div>
                                     <h2 class="text-sm font-semibold">Existing hotspots</h2>

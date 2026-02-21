@@ -31,6 +31,7 @@ const abilityFlags = computed<Record<EpAdminAbilityKey, boolean>>(() => ({
     ads_manage: page.props.auth.abilities?.ads_manage ?? false,
     settings_manage: page.props.auth.abilities?.settings_manage ?? false,
     editions_manage: page.props.auth.abilities?.editions_manage ?? false,
+    users_manage: page.props.auth.abilities?.users_manage ?? false,
 }));
 
 const mainNavSections = computed<NavSection[]>(() => {

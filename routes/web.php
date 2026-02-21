@@ -8,6 +8,7 @@ use App\Http\Controllers\EpAdmin\EditionPublishController;
 use App\Http\Controllers\EpAdmin\PageController;
 use App\Http\Controllers\EpAdmin\PageHotspotController;
 use App\Http\Controllers\EpAdmin\SiteSettingController;
+use App\Http\Controllers\EpAdmin\UserAclController;
 use App\Http\Controllers\PublicEpaperController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -75,6 +76,20 @@ Route::middleware(['auth'])->prefix('admin')->name('epadmin.')->group(function (
     Route::middleware('can:settings.manage')->group(function () {
         Route::get('/settings', [SiteSettingController::class, 'index'])->name('settings.index');
         Route::put('/settings', [SiteSettingController::class, 'update'])->name('settings.update');
+    });
+
+    Route::middleware('can:users.manage')->prefix('users')->name('users.')->group(function () {
+        Route::get('/', [UserAclController::class, 'index'])->name('index');
+        Route::post('/accounts', [UserAclController::class, 'storeUser'])->name('accounts.store');
+        Route::put('/accounts/{user}', [UserAclController::class, 'updateUser'])->name('accounts.update');
+        Route::delete('/accounts/{user}', [UserAclController::class, 'destroyUser'])->name('accounts.destroy');
+        Route::post('/roles', [UserAclController::class, 'storeRole'])->name('roles.store');
+        Route::put('/roles/{role}', [UserAclController::class, 'updateRole'])->name('roles.update');
+        Route::delete('/roles/{role}', [UserAclController::class, 'destroyRole'])->name('roles.destroy');
+        Route::post('/permissions', [UserAclController::class, 'storePermission'])->name('permissions.store');
+        Route::put('/permissions/{permission}', [UserAclController::class, 'updatePermission'])->name('permissions.update');
+        Route::delete('/permissions/{permission}', [UserAclController::class, 'destroyPermission'])->name('permissions.destroy');
+        Route::put('/{user}/acl', [UserAclController::class, 'update'])->name('acl.update');
     });
 });
 

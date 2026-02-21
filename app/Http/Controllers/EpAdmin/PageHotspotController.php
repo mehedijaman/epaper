@@ -263,6 +263,7 @@ class PageHotspotController extends Controller
             $sourceHotspot->target_hotspot_id = null;
             $sourceHotspot->linked_hotspot_id = null;
             $sourceHotspot->save();
+
             return;
         }
 

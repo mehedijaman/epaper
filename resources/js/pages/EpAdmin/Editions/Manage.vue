@@ -37,9 +37,18 @@ type EditionSummary = {
     published_at: string | null;
 };
 
+type EditionOption = {
+    id: number;
+    edition_date: string;
+    status: 'draft' | 'published';
+    pages_count: number;
+};
+
 type Props = {
     date: string;
     date_error: string | null;
+    selected_edition_id: number | null;
+    edition_options: EditionOption[];
     edition: EditionSummary | null;
     pages: Page[];
     categories: Category[];
@@ -52,11 +61,23 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 const date = ref(props.date);
+const selectedEditionId = ref(
+    typeof props.selected_edition_id === 'number' && props.selected_edition_id > 0
+        ? String(props.selected_edition_id)
+        : 'none',
+);
 
 watch(
     () => props.date,
     (value) => {
         date.value = value;
+    },
+);
+
+watch(
+    () => props.selected_edition_id,
+    (value) => {
+        selectedEditionId.value = typeof value === 'number' && value > 0 ? String(value) : 'none';
     },
 );
 
@@ -147,10 +168,17 @@ watch(
 );
 
 function searchByDate(): void {
+    const parsedEditionId = selectedEditionId.value !== 'none'
+        ? Number.parseInt(selectedEditionId.value, 10)
+        : Number.NaN;
+
     router.get(
         '/admin/editions/manage',
         {
             date: date.value !== '' ? date.value : undefined,
+            edition_id: Number.isFinite(parsedEditionId) && parsedEditionId > 0
+                ? parsedEditionId
+                : undefined,
         },
         {
             preserveScroll: true,
@@ -158,6 +186,48 @@ function searchByDate(): void {
             replace: true,
         },
     );
+}
+
+function onDateInputChanged(): void {
+    if (selectedEditionId.value === 'none') {
+        return;
+    }
+
+    const selectedEdition = props.edition_options.find(
+        (item) => String(item.id) === selectedEditionId.value,
+    );
+
+    if (selectedEdition === undefined || selectedEdition.edition_date !== date.value) {
+        selectedEditionId.value = 'none';
+    }
+}
+
+function onEditionSelect(value: unknown): void {
+    let normalizedValue = 'none';
+
+    if (typeof value === 'string') {
+        normalizedValue = value;
+    } else if (typeof value === 'number' || typeof value === 'bigint') {
+        normalizedValue = String(value);
+    }
+
+    selectedEditionId.value = normalizedValue;
+
+    if (normalizedValue === 'none') {
+        return;
+    }
+
+    const selectedEdition = props.edition_options.find((item) => String(item.id) === normalizedValue);
+
+    if (selectedEdition !== undefined) {
+        date.value = selectedEdition.edition_date;
+    }
+}
+
+function formatEditionOption(item: EditionOption): string {
+    const pageSuffix = item.pages_count === 1 ? 'page' : 'pages';
+
+    return `${item.edition_date} | ${item.status} | ${item.pages_count} ${pageSuffix}`;
 }
 
 function refreshAfterUpload(): void {
@@ -414,14 +484,34 @@ watch(isEditDialogOpen, (isOpen) => {
                     <CardTitle>Search edition by date</CardTitle>
                 </CardHeader>
                 <CardContent class="space-y-3">
-                    <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+                    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,220px)_minmax(0,320px)_auto] xl:items-end">
                         <div class="space-y-1">
                             <label for="manage-edition-date" class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                                 Edition date
                             </label>
-                            <Input id="manage-edition-date" v-model="date" type="date" class="sm:w-56" />
+                            <Input id="manage-edition-date" v-model="date" type="date" @input="onDateInputChanged" />
                         </div>
-                        <Button class="sm:min-w-28" @click="searchByDate">Search</Button>
+                        <div class="space-y-1">
+                            <label class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                Edition
+                            </label>
+                            <Select :model-value="selectedEditionId" @update:model-value="onEditionSelect">
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select edition" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">Select by date</SelectItem>
+                                    <SelectItem
+                                        v-for="item in props.edition_options"
+                                        :key="item.id"
+                                        :value="String(item.id)"
+                                    >
+                                        {{ formatEditionOption(item) }}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <Button class="w-full md:w-auto xl:min-w-28" @click="searchByDate">Search</Button>
                     </div>
                     <p v-if="props.date_error" class="text-sm text-destructive">
                         {{ props.date_error }}
@@ -448,6 +538,7 @@ watch(isEditDialogOpen, (isOpen) => {
 
                 <MultiPageUploadForm
                     :edition-id="editionId"
+                    :categories="props.categories"
                     @uploaded="refreshAfterUpload"
                 />
 

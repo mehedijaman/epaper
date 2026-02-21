@@ -4,6 +4,7 @@ import {
     Link2,
     Newspaper,
     Settings,
+    ShieldCheck,
     Tag,
     Upload,
 } from 'lucide-vue-next';
@@ -13,7 +14,8 @@ export type EpAdminAbilityKey =
     | 'categories_manage'
     | 'ads_manage'
     | 'settings_manage'
-    | 'editions_manage';
+    | 'editions_manage'
+    | 'users_manage';
 
 export type EpAdminMenuItem = NavItem & {
     requiredAbility?: EpAdminAbilityKey;
@@ -81,6 +83,13 @@ export const EPADMIN_MENU_SECTIONS: EpAdminMenuSection[] = [
                 icon: Settings,
                 activeStartsWith: ['/admin/settings'],
                 requiredAbility: 'settings_manage',
+            },
+            {
+                title: 'ACL',
+                href: '/admin/users',
+                icon: ShieldCheck,
+                activeStartsWith: ['/admin/users'],
+                requiredAbility: 'users_manage',
             },
         ],
     },

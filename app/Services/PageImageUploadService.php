@@ -24,8 +24,13 @@ class PageImageUploadService
      * @param  array<int, UploadedFile>  $files
      * @return array{warnings: array<int, string>, uploaded_count: int}
      */
-    public function upload(Edition $edition, array $files, ?string $pageNoStrategy, ?int $uploadedBy): array
-    {
+    public function upload(
+        Edition $edition,
+        array $files,
+        ?string $pageNoStrategy,
+        ?int $uploadedBy,
+        ?int $categoryId = null,
+    ): array {
         $warnings = [];
         $disk = Storage::disk(config('epaper.disk'));
         $basePath = sprintf('epaper/%s', $edition->edition_date->format('Y-m-d'));
@@ -80,7 +85,7 @@ class PageImageUploadService
                     'page_no' => $pageNo,
                 ],
                 [
-                    'category_id' => $existing?->category_id,
+                    'category_id' => $categoryId ?? $existing?->category_id,
                     'image_original_path' => $this->normalizePath($originalPath),
                     'image_large_path' => $this->normalizePath($largePath),
                     'image_thumb_path' => $this->normalizePath($thumbPath),
@@ -284,5 +289,4 @@ class PageImageUploadService
             default => (string) $image->toJpeg(quality: 85),
         };
     }
-
 }

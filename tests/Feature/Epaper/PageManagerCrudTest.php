@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Category;
 use App\Models\Edition;
 use App\Models\Page;
 use App\Models\PageHotspot;
@@ -299,4 +300,40 @@ test('page manager can delete a page and its hotspot mappings', function () {
     Storage::disk('public')->assertMissing('epaper/2026-02-20/original/page-0001-old.jpg');
     Storage::disk('public')->assertMissing('epaper/2026-02-20/large/page-0001-old.jpg');
     Storage::disk('public')->assertMissing('epaper/2026-02-20/thumb/page-0001-old.jpg');
+});
+
+test('page manager can upload pages with selected category', function () {
+    Storage::fake('public');
+
+    $operator = User::factory()->create();
+    $operator->assignRole('operator');
+
+    $edition = Edition::query()->create([
+        'edition_date' => '2026-02-20',
+        'status' => Edition::STATUS_DRAFT,
+        'created_by' => $operator->id,
+    ]);
+
+    $category = Category::query()->create([
+        'name' => 'National',
+        'position' => 1,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($operator)
+        ->post(route('epadmin.pages.upload'), [
+            'edition_id' => $edition->id,
+            'category_id' => $category->id,
+            'page_no_strategy' => 'next_available',
+            'files' => [
+                UploadedFile::fake()->image('001.jpg', 1200, 1600),
+            ],
+        ])
+        ->assertRedirect(route('epadmin.editions.manage', ['date' => '2026-02-20']));
+
+    $this->assertDatabaseHas('pages', [
+        'edition_id' => $edition->id,
+        'page_no' => 1,
+        'category_id' => $category->id,
+    ]);
 });

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, type CSSProperties } from 'vue';
 import type { ViewerPageListItem } from '@/types';
 
 const props = withDefaults(defineProps<{
@@ -24,7 +24,7 @@ const gridClass = computed(() => {
     return 'flex flex-col gap-2';
 });
 
-const railStyle = computed<Record<string, string>>(() => {
+const railStyle = computed<CSSProperties>(() => {
     if (props.railHeight === null || props.railHeight <= 0) {
         return {};
     }

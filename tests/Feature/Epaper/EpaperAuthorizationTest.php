@@ -4,6 +4,7 @@ use App\Models\Edition;
 use App\Models\Page;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -138,4 +139,30 @@ test('edition date search reuses existing edition row for manage and publish rou
         ->assertOk();
 
     $this->assertDatabaseCount('editions', 1);
+});
+
+test('edition manager can load edition using edition_id query', function () {
+    $operator = User::factory()->create();
+    $operator->assignRole('operator');
+
+    Edition::query()->create([
+        'edition_date' => CarbonImmutable::parse('2026-02-20')->startOfDay(),
+        'status' => Edition::STATUS_DRAFT,
+        'created_by' => $operator->id,
+    ]);
+
+    $selectedEdition = Edition::query()->create([
+        'edition_date' => CarbonImmutable::parse('2026-02-21')->startOfDay(),
+        'status' => Edition::STATUS_DRAFT,
+        'created_by' => $operator->id,
+    ]);
+
+    $this->actingAs($operator)
+        ->get(route('epadmin.editions.manage', ['edition_id' => $selectedEdition->id]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('selected_edition_id', $selectedEdition->id)
+            ->where('edition.id', $selectedEdition->id)
+            ->where('date', '2026-02-21')
+        );
 });

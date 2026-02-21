@@ -20,12 +20,18 @@ class EditionManageController extends Controller
     {
         $rawDate = $request->query('date');
         $date = is_string($rawDate) ? trim($rawDate) : '';
+        $selectedEditionId = $this->parseEditionId($request->query('edition_id'));
 
         $editionData = null;
         $pagesData = [];
         $dateError = null;
+        $edition = null;
 
-        if ($date !== '') {
+        if ($selectedEditionId !== null) {
+            $edition = Edition::query()->find($selectedEditionId);
+        }
+
+        if (! $edition instanceof Edition && $date !== '') {
             $normalizedDate = $this->normalizeDate($date);
 
             if ($normalizedDate === null) {
@@ -35,30 +41,33 @@ class EditionManageController extends Controller
                     $normalizedDate,
                     (int) $request->user()->id,
                 );
-
-                $edition->load([
-                    'pages' => fn ($query) => $query
-                        ->with(['category', 'hotspots'])
-                        ->orderBy('page_no'),
-                ]);
-
-                $editionData = [
-                    'id' => $edition->id,
-                    'edition_date' => $edition->edition_date->toDateString(),
-                    'status' => $edition->status,
-                    'published_at' => $edition->published_at?->toISOString(),
-                ];
-
-                /** @var Collection<int, Page> $editionPages */
-                $editionPages = $edition->pages;
-
-                $pagesData = $editionPages
-                    ->map(fn (Page $page): array => EpaperData::mapPage($page))
-                    ->values()
-                    ->all();
-
-                $date = $edition->edition_date->toDateString();
             }
+        }
+
+        if ($edition instanceof Edition) {
+            $edition->load([
+                'pages' => fn ($query) => $query
+                    ->with(['category', 'hotspots'])
+                    ->orderBy('page_no'),
+            ]);
+
+            $editionData = [
+                'id' => $edition->id,
+                'edition_date' => $edition->edition_date->toDateString(),
+                'status' => $edition->status,
+                'published_at' => $edition->published_at?->toISOString(),
+            ];
+
+            /** @var Collection<int, Page> $editionPages */
+            $editionPages = $edition->pages;
+
+            $pagesData = $editionPages
+                ->map(fn (Page $page): array => EpaperData::mapPage($page))
+                ->values()
+                ->all();
+
+            $selectedEditionId = $edition->id;
+            $date = $edition->edition_date->toDateString();
         }
 
         /** @var Collection<int, Category> $categories */
@@ -66,9 +75,17 @@ class EditionManageController extends Controller
             ->orderBy('position')
             ->get();
 
+        /** @var Collection<int, Edition> $editionOptions */
+        $editionOptions = Edition::query()
+            ->withCount('pages')
+            ->orderByDesc('edition_date')
+            ->limit(180)
+            ->get();
+
         return Inertia::render('EpAdmin/Editions/Manage', [
             'date' => $date,
             'date_error' => $dateError,
+            'selected_edition_id' => $selectedEditionId,
             'edition' => $editionData,
             'pages' => $pagesData,
             'categories' => $categories
@@ -77,6 +94,15 @@ class EditionManageController extends Controller
                     'name' => $category->name,
                     'position' => $category->position,
                     'is_active' => $category->is_active,
+                ])
+                ->values()
+                ->all(),
+            'edition_options' => $editionOptions
+                ->map(fn (Edition $item): array => [
+                    'id' => $item->id,
+                    'edition_date' => $item->edition_date->toDateString(),
+                    'status' => $item->status,
+                    'pages_count' => (int) $item->pages_count,
                 ])
                 ->values()
                 ->all(),
@@ -121,5 +147,26 @@ class EditionManageController extends Controller
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    private function parseEditionId(mixed $value): ?int
+    {
+        if (is_int($value)) {
+            return $value > 0 ? $value : null;
+        }
+
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $trimmed = trim($value);
+
+        if ($trimmed === '' || ! ctype_digit($trimmed)) {
+            return null;
+        }
+
+        $parsed = (int) $trimmed;
+
+        return $parsed > 0 ? $parsed : null;
     }
 }

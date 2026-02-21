@@ -5,8 +5,8 @@ namespace App\Http\Controllers\EpAdmin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\EpAdmin\PageReorderRequest;
 use App\Http\Requests\EpAdmin\PageReplaceRequest;
-use App\Http\Requests\EpAdmin\PageUploadRequest;
 use App\Http\Requests\EpAdmin\PageUpdateRequest;
+use App\Http\Requests\EpAdmin\PageUploadRequest;
 use App\Models\Edition;
 use App\Models\Page;
 use App\Models\PageHotspot;
@@ -31,6 +31,9 @@ class PageController extends Controller
             ->filter(fn ($file): bool => $file instanceof UploadedFile)
             ->values()
             ->all();
+        $categoryId = array_key_exists('category_id', $validated) && $validated['category_id'] !== null
+            ? (int) $validated['category_id']
+            : null;
 
         if ($uploadedFiles === []) {
             throw ValidationException::withMessages([
@@ -43,6 +46,7 @@ class PageController extends Controller
             files: $uploadedFiles,
             pageNoStrategy: $validated['page_no_strategy'] ?? null,
             uploadedBy: $request->user()?->id,
+            categoryId: $categoryId,
         );
 
         return redirect()

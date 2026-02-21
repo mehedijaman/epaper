@@ -44,6 +44,7 @@ class HandleInertiaRequests extends Middleware
             'ads_manage' => $user?->can('ads.manage') ?? false,
             'settings_manage' => $user?->can('settings.manage') ?? false,
             'editions_manage' => $user?->can('editions.manage') ?? false,
+            'users_manage' => $user?->can('users.manage') ?? false,
         ];
 
         return [

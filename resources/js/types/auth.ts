@@ -18,6 +18,7 @@ export type Auth = {
         ads_manage: boolean;
         settings_manage: boolean;
         editions_manage: boolean;
+        users_manage: boolean;
     };
     is_admin: boolean;
     is_operator: boolean;
