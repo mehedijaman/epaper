@@ -1,0 +1,1743 @@
+<script setup lang="ts">
+import { Head, router, useForm } from '@inertiajs/vue3';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import InputError from '@/components/InputError.vue';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import EpAdminLayout from '@/layouts/EpAdminLayout.vue';
+import type { BreadcrumbItem, Hotspot, Page } from '@/types';
+
+type EditionInfo = {
+    id: number;
+    edition_date: string;
+    status: 'draft' | 'published';
+    published_at: string | null;
+    pages_count: number;
+    max_page_no: number;
+};
+
+type EditionPageItem = {
+    id: number;
+    page_no: number;
+};
+
+type TargetHotspotOption = {
+    id: number;
+    relation_kind: 'next' | 'previous';
+    target_page_no: number;
+    label: string | null;
+};
+
+type NormalizedPoint = {
+    x: number;
+    y: number;
+};
+
+type NormalizedRect = {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+};
+
+type HotspotLinkState = 'none' | 'paired' | 'outbound' | 'inbound' | 'mismatch';
+type HotspotListFilter = 'all' | HotspotLinkState;
+type HotspotSortOption = 'id_asc' | 'id_desc' | 'target_page' | 'relation';
+
+type HotspotForm = {
+    page_id: number;
+    relation_kind: 'next' | 'previous';
+    target_page_no: number;
+    target_hotspot_id: number | null;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    label: string;
+};
+
+type Props = {
+    selected_page_id: number | null;
+    edition: EditionInfo | null;
+    page: Page | null;
+    edition_pages: EditionPageItem[];
+    target_page_numbers: number[];
+    target_hotspots_by_page: Record<string, TargetHotspotOption[]>;
+    focus_hotspot_id: number | null;
+};
+
+const props = defineProps<Props>();
+
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Page Mapping', href: '/admin/hotspots' },
+];
+
+const canvasViewportRef = ref<HTMLDivElement | null>(null);
+const imageRef = ref<HTMLImageElement | null>(null);
+const imageDimensions = ref({ width: 0, height: 0 });
+const imageNaturalDimensions = ref({ width: 0, height: 0 });
+const selectedPageId = ref<string>(props.selected_page_id !== null ? String(props.selected_page_id) : '');
+const drawing = ref(false);
+const drawingStart = ref<NormalizedPoint | null>(null);
+const draftRect = ref<NormalizedRect | null>(null);
+const isDialogOpen = ref(false);
+const editingHotspotId = ref<number | null>(null);
+const pendingFocusHotspotId = ref<number | null>(props.focus_hotspot_id);
+const hotspotSearch = ref('');
+const activeHotspotId = ref<number | null>(null);
+const drawModeEnabled = ref(true);
+const hotspotStateFilter = ref<HotspotListFilter>('all');
+const hotspotSort = ref<HotspotSortOption>('id_asc');
+const hotspotRowRefs = new Map<number, HTMLElement>();
+const areaEditHotspotId = ref<number | null>(null);
+
+const hotspotForm = useForm<HotspotForm>({
+    page_id: 0,
+    relation_kind: 'next',
+    target_page_no: 1,
+    target_hotspot_id: null,
+    x: 0,
+    y: 0,
+    w: 0,
+    h: 0,
+    label: '',
+});
+
+const currentPage = computed(() => props.page);
+const currentHotspots = computed(() => currentPage.value?.hotspots ?? []);
+const currentPageNo = computed(() => currentPage.value?.page_no ?? 1);
+const hasPage = computed(() => currentPage.value !== null);
+const targetPageNumbers = computed<number[]>(() => {
+    if (props.target_page_numbers.length > 0) {
+        return props.target_page_numbers;
+    }
+
+    if (currentPage.value !== null) {
+        return [currentPage.value.page_no];
+    }
+
+    return [];
+});
+const targetHotspotsByPage = computed<Map<number, TargetHotspotOption[]>>(() => {
+    const map = new Map<number, TargetHotspotOption[]>();
+
+    for (const [pageNo, hotspots] of Object.entries(props.target_hotspots_by_page)) {
+        const parsedPageNo = Number.parseInt(pageNo, 10);
+
+        if (!Number.isFinite(parsedPageNo)) {
+            continue;
+        }
+
+        map.set(
+            parsedPageNo,
+            hotspots.map((hotspot) => ({
+                id: hotspot.id,
+                relation_kind: hotspot.relation_kind,
+                target_page_no: hotspot.target_page_no,
+                label: hotspot.label,
+            })),
+        );
+    }
+
+    return map;
+});
+const availableTargetHotspots = computed<TargetHotspotOption[]>(() => {
+    const options = targetHotspotsByPage.value.get(hotspotForm.target_page_no) ?? [];
+
+    if (editingHotspotId.value === null) {
+        return options;
+    }
+
+    return options.filter((item) => item.id !== editingHotspotId.value);
+});
+const targetHotspotSelectValue = computed<string>({
+    get: () => (hotspotForm.target_hotspot_id === null ? '__none' : String(hotspotForm.target_hotspot_id)),
+    set: (value) => {
+        if (value === '__none') {
+            hotspotForm.target_hotspot_id = null;
+            return;
+        }
+
+        const parsed = Number.parseInt(value, 10);
+        hotspotForm.target_hotspot_id = Number.isFinite(parsed) ? parsed : null;
+    },
+});
+const overlayStyle = computed<Record<string, string>>(() => ({
+    width: `${imageDimensions.value.width}px`,
+    height: `${imageDimensions.value.height}px`,
+}));
+const imageSource = computed(() => {
+    if (currentPage.value === null) {
+        return '';
+    }
+
+    const largeUrl = currentPage.value.image_large_url;
+
+    if (typeof largeUrl === 'string' && largeUrl.trim() !== '') {
+        return largeUrl;
+    }
+
+    return currentPage.value.image_original_url;
+});
+const hotspotDialogTitle = computed(() =>
+    editingHotspotId.value === null ? 'Create hotspot' : 'Edit hotspot',
+);
+const hotspotDialogActionText = computed(() =>
+    editingHotspotId.value === null ? 'Save hotspot' : 'Update hotspot',
+);
+const hasDraftRect = computed(() => draftRect.value !== null);
+const orderedHotspots = computed(() => {
+    const rows = [...currentHotspots.value];
+
+    if (hotspotSort.value === 'id_desc') {
+        return rows.sort((a, b) => b.id - a.id);
+    }
+
+    if (hotspotSort.value === 'target_page') {
+        return rows.sort((a, b) => {
+            if (a.target_page_no === b.target_page_no) {
+                return a.id - b.id;
+            }
+
+            return a.target_page_no - b.target_page_no;
+        });
+    }
+
+    if (hotspotSort.value === 'relation') {
+        return rows.sort((a, b) => {
+            if (a.relation_kind === b.relation_kind) {
+                return a.id - b.id;
+            }
+
+            return a.relation_kind.localeCompare(b.relation_kind);
+        });
+    }
+
+    return rows.sort((a, b) => a.id - b.id);
+});
+const stateFilteredHotspots = computed(() => {
+    if (hotspotStateFilter.value === 'all') {
+        return orderedHotspots.value;
+    }
+
+    return orderedHotspots.value.filter((hotspot) => hotspotLinkState(hotspot) === hotspotStateFilter.value);
+});
+const filteredHotspots = computed(() => {
+    const query = hotspotSearch.value.trim().toLowerCase();
+
+    if (query === '') {
+        return stateFilteredHotspots.value;
+    }
+
+    return stateFilteredHotspots.value.filter((hotspot) => {
+        const label = hotspot.label?.toLowerCase() ?? '';
+        const linkId = linkedHotspotId(hotspot);
+
+        return (
+            String(hotspot.id).includes(query)
+            || hotspot.relation_kind.toLowerCase().includes(query)
+            || String(hotspot.target_page_no).includes(query)
+            || (linkId !== null && String(linkId).includes(query))
+            || label.includes(query)
+            || hotspotLinkLabel(hotspotLinkState(hotspot)).toLowerCase().includes(query)
+        );
+    });
+});
+const hotspotStats = computed(() => {
+    const stats = {
+        paired: 0,
+        outbound: 0,
+        inbound: 0,
+        mismatch: 0,
+        none: 0,
+    };
+
+    for (const hotspot of currentHotspots.value) {
+        const state = hotspotLinkState(hotspot);
+        stats[state] += 1;
+    }
+
+    return stats;
+});
+const selectedPageIndex = computed(() =>
+    props.edition_pages.findIndex((item) => String(item.id) === selectedPageId.value),
+);
+const hasPreviousPage = computed(() => selectedPageIndex.value > 0);
+const hasNextPage = computed(
+    () => selectedPageIndex.value >= 0 && selectedPageIndex.value < props.edition_pages.length - 1,
+);
+const hasActiveListControls = computed(
+    () => hotspotSearch.value.trim() !== '' || hotspotStateFilter.value !== 'all' || hotspotSort.value !== 'id_asc',
+);
+const areaEditTargetHotspot = computed<Hotspot | null>(() => {
+    if (areaEditHotspotId.value === null) {
+        return null;
+    }
+
+    return currentHotspots.value.find((hotspot) => hotspot.id === areaEditHotspotId.value) ?? null;
+});
+const areaEditOriginalSummary = computed(() => {
+    if (areaEditTargetHotspot.value === null) {
+        return null;
+    }
+
+    return {
+        x: areaEditTargetHotspot.value.x.toFixed(3),
+        y: areaEditTargetHotspot.value.y.toFixed(3),
+        w: areaEditTargetHotspot.value.w.toFixed(3),
+        h: areaEditTargetHotspot.value.h.toFixed(3),
+    };
+});
+const draftRectSummary = computed(() => {
+    if (draftRect.value === null) {
+        return null;
+    }
+
+    return {
+        x: draftRect.value.x.toFixed(3),
+        y: draftRect.value.y.toFixed(3),
+        w: draftRect.value.w.toFixed(3),
+        h: draftRect.value.h.toFixed(3),
+    };
+});
+
+watch(
+    () => props.selected_page_id,
+    (value) => {
+        selectedPageId.value = value !== null ? String(value) : '';
+        draftRect.value = null;
+        drawing.value = false;
+        drawingStart.value = null;
+        areaEditHotspotId.value = null;
+        void nextTick(() => {
+            window.requestAnimationFrame(updateImageDimensions);
+        });
+    },
+);
+
+watch(
+    () => imageSource.value,
+    () => {
+        void nextTick(() => {
+            window.requestAnimationFrame(updateImageDimensions);
+        });
+    },
+);
+
+watch(
+    () => props.focus_hotspot_id,
+    (value) => {
+        pendingFocusHotspotId.value = value;
+        tryOpenFocusedHotspot();
+    },
+    { immediate: true },
+);
+
+watch(
+    () => hotspotForm.target_page_no,
+    () => {
+        if (hotspotForm.target_hotspot_id === null) {
+            return;
+        }
+
+        const stillAvailable = availableTargetHotspots.value.some(
+            (hotspot) => hotspot.id === hotspotForm.target_hotspot_id,
+        );
+
+        if (!stillAvailable) {
+            hotspotForm.target_hotspot_id = null;
+        }
+    },
+);
+
+watch(
+    currentHotspots,
+    () => {
+        tryOpenFocusedHotspot();
+
+        if (
+            areaEditHotspotId.value !== null
+            && !currentHotspots.value.some((hotspot) => hotspot.id === areaEditHotspotId.value)
+        ) {
+            areaEditHotspotId.value = null;
+        }
+    },
+);
+
+watch(editingHotspotId, (value) => {
+    activeHotspotId.value = value;
+});
+
+watch(activeHotspotId, async (value) => {
+    if (value === null) {
+        return;
+    }
+
+    await nextTick();
+    hotspotRowRefs.get(value)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+});
+
+onMounted(() => {
+    window.addEventListener('resize', updateImageDimensions);
+    window.addEventListener('keydown', onWindowKeydown);
+    window.addEventListener('mousemove', onWindowMouseMove);
+    window.addEventListener('mouseup', onWindowMouseUp);
+    updateImageDimensions();
+});
+
+onBeforeUnmount(() => {
+    window.removeEventListener('resize', updateImageDimensions);
+    window.removeEventListener('keydown', onWindowKeydown);
+    window.removeEventListener('mousemove', onWindowMouseMove);
+    window.removeEventListener('mouseup', onWindowMouseUp);
+});
+
+function clamp(value: number, min = 0, max = 1): number {
+    return Math.min(Math.max(value, min), max);
+}
+
+function updateImageDimensions(): void {
+    const image = imageRef.value;
+
+    if (image === null) {
+        imageDimensions.value = { width: 0, height: 0 };
+        imageNaturalDimensions.value = { width: 0, height: 0 };
+        return;
+    }
+
+    const rect = image.getBoundingClientRect();
+    imageDimensions.value = {
+        width: Math.max(0, rect.width),
+        height: Math.max(0, rect.height),
+    };
+    imageNaturalDimensions.value = {
+        width: Math.max(0, image.naturalWidth),
+        height: Math.max(0, image.naturalHeight),
+    };
+}
+
+function toNormalizedPoint(clientX: number, clientY: number): NormalizedPoint | null {
+    const image = imageRef.value;
+
+    if (image === null) {
+        return null;
+    }
+
+    const rect = image.getBoundingClientRect();
+
+    if (rect.width <= 0 || rect.height <= 0) {
+        return null;
+    }
+
+    return {
+        x: clamp((clientX - rect.left) / rect.width),
+        y: clamp((clientY - rect.top) / rect.height),
+    };
+}
+
+function startDrawing(clientX: number, clientY: number): void {
+    if (!hasPage.value || !drawModeEnabled.value) {
+        return;
+    }
+
+    const point = toNormalizedPoint(clientX, clientY);
+
+    if (point === null) {
+        return;
+    }
+
+    drawing.value = true;
+    drawingStart.value = point;
+    draftRect.value = {
+        x: point.x,
+        y: point.y,
+        w: 0,
+        h: 0,
+    };
+}
+
+function continueDrawing(clientX: number, clientY: number): void {
+    if (!drawing.value || drawingStart.value === null) {
+        return;
+    }
+
+    const point = toNormalizedPoint(clientX, clientY);
+
+    if (point === null) {
+        return;
+    }
+
+    const x = Math.min(drawingStart.value.x, point.x);
+    const y = Math.min(drawingStart.value.y, point.y);
+    const w = Math.abs(point.x - drawingStart.value.x);
+    const h = Math.abs(point.y - drawingStart.value.y);
+
+    draftRect.value = {
+        x: clamp(x),
+        y: clamp(y),
+        w: clamp(w),
+        h: clamp(h),
+    };
+}
+
+function endDrawing(): void {
+    if (!drawing.value) {
+        return;
+    }
+
+    drawing.value = false;
+    drawingStart.value = null;
+
+    if (draftRect.value === null) {
+        return;
+    }
+
+    if (draftRect.value.w <= 0.005 || draftRect.value.h <= 0.005) {
+        draftRect.value = null;
+        return;
+    }
+
+    const completedRect = draftRect.value;
+
+    if (areaEditHotspotId.value !== null) {
+        const hotspot = currentHotspots.value.find((item) => item.id === areaEditHotspotId.value);
+        areaEditHotspotId.value = null;
+
+        if (hotspot !== undefined) {
+            openEditDialog(hotspot);
+            hotspotForm.x = completedRect.x;
+            hotspotForm.y = completedRect.y;
+            hotspotForm.w = completedRect.w;
+            hotspotForm.h = completedRect.h;
+        }
+
+        draftRect.value = null;
+        return;
+    }
+
+    openCreateDialog(completedRect);
+    draftRect.value = null;
+}
+
+function parseTouch(event: TouchEvent): { x: number; y: number } | null {
+    const touch = event.touches[0] ?? event.changedTouches[0];
+
+    if (touch === undefined) {
+        return null;
+    }
+
+    return {
+        x: touch.clientX,
+        y: touch.clientY,
+    };
+}
+
+function onMouseDown(event: MouseEvent): void {
+    if (event.button !== 0) {
+        return;
+    }
+
+    event.preventDefault();
+    startDrawing(event.clientX, event.clientY);
+}
+
+function onMouseMove(event: MouseEvent): void {
+    if (!drawing.value) {
+        return;
+    }
+
+    event.preventDefault();
+    continueDrawing(event.clientX, event.clientY);
+}
+
+function onMouseUp(event: MouseEvent): void {
+    if (!drawing.value) {
+        return;
+    }
+
+    event.preventDefault();
+    endDrawing();
+}
+
+function onWindowMouseMove(event: MouseEvent): void {
+    if (!drawing.value) {
+        return;
+    }
+
+    continueDrawing(event.clientX, event.clientY);
+}
+
+function onWindowMouseUp(event: MouseEvent): void {
+    if (!drawing.value || event.button !== 0) {
+        return;
+    }
+
+    endDrawing();
+}
+
+function onTouchStart(event: TouchEvent): void {
+    const point = parseTouch(event);
+
+    if (point === null) {
+        return;
+    }
+
+    startDrawing(point.x, point.y);
+}
+
+function onTouchMove(event: TouchEvent): void {
+    const point = parseTouch(event);
+
+    if (point === null) {
+        return;
+    }
+
+    continueDrawing(point.x, point.y);
+}
+
+function onTouchEnd(): void {
+    endDrawing();
+}
+
+function hotspotToStyle(rect: NormalizedRect): Record<string, string> {
+    return {
+        left: `${rect.x * imageDimensions.value.width}px`,
+        top: `${rect.y * imageDimensions.value.height}px`,
+        width: `${rect.w * imageDimensions.value.width}px`,
+        height: `${rect.h * imageDimensions.value.height}px`,
+    };
+}
+
+function hotspotThumbnailImageStyle(hotspot: Hotspot): Record<string, string> {
+    const naturalWidth = imageNaturalDimensions.value.width;
+    const naturalHeight = imageNaturalDimensions.value.height;
+
+    if (naturalWidth <= 0 || naturalHeight <= 0) {
+        return {};
+    }
+
+    const previewWidth = 96;
+    const previewHeight = 64;
+    const normalizedWidth = Math.max(hotspot.w, 0.000001);
+    const normalizedHeight = Math.max(hotspot.h, 0.000001);
+    const cropWidth = normalizedWidth * naturalWidth;
+    const cropHeight = normalizedHeight * naturalHeight;
+
+    if (cropWidth <= 0 || cropHeight <= 0) {
+        return {};
+    }
+
+    const scale = Math.min(previewWidth / cropWidth, previewHeight / cropHeight);
+    const scaledWidth = naturalWidth * scale;
+    const scaledHeight = naturalHeight * scale;
+    const hotspotCenterX = (hotspot.x + normalizedWidth / 2) * naturalWidth * scale;
+    const hotspotCenterY = (hotspot.y + normalizedHeight / 2) * naturalHeight * scale;
+    const left = previewWidth / 2 - hotspotCenterX;
+    const top = previewHeight / 2 - hotspotCenterY;
+
+    return {
+        width: `${scaledWidth}px`,
+        height: `${scaledHeight}px`,
+        left: `${left}px`,
+        top: `${top}px`,
+        maxWidth: 'none',
+    };
+}
+
+function defaultTargetPageNo(): number {
+    const numbers = targetPageNumbers.value;
+    const preferred = numbers.find((pageNo) => pageNo !== currentPageNo.value);
+
+    return preferred ?? numbers[0] ?? 1;
+}
+
+function pageNoForTargetHotspotId(hotspotId: number): number | null {
+    for (const [pageNo, hotspots] of targetHotspotsByPage.value.entries()) {
+        const exists = hotspots.some((item) => item.id === hotspotId);
+
+        if (exists) {
+            return pageNo;
+        }
+    }
+
+    return null;
+}
+
+function linkedHotspotId(hotspot: Hotspot): number | null {
+    return hotspot.target_hotspot_id ?? hotspot.linked_hotspot_id ?? null;
+}
+
+function hotspotLocationInEdition(hotspotId: number): { pageNo: number; pageId: number } | null {
+    for (const [pageNo, hotspots] of targetHotspotsByPage.value.entries()) {
+        const exists = hotspots.some((item) => item.id === hotspotId);
+
+        if (!exists) {
+            continue;
+        }
+
+        const page = props.edition_pages.find((item) => item.page_no === pageNo);
+
+        if (page !== undefined) {
+            return {
+                pageNo,
+                pageId: page.id,
+            };
+        }
+    }
+
+    return null;
+}
+
+function linkedHotspotPageNo(hotspot: Hotspot): number | null {
+    const linkedId = linkedHotspotId(hotspot);
+
+    if (linkedId === null) {
+        return null;
+    }
+
+    return hotspotLocationInEdition(linkedId)?.pageNo ?? null;
+}
+
+function hotspotLinkState(hotspot: Hotspot): HotspotLinkState {
+    const targetHotspotId = hotspot.target_hotspot_id ?? null;
+    const linkedHotspotId = hotspot.linked_hotspot_id ?? null;
+
+    if (targetHotspotId === null && linkedHotspotId === null) {
+        return 'none';
+    }
+
+    if (targetHotspotId !== null && linkedHotspotId !== null) {
+        return targetHotspotId === linkedHotspotId ? 'paired' : 'mismatch';
+    }
+
+    if (targetHotspotId !== null) {
+        return 'outbound';
+    }
+
+    return 'inbound';
+}
+
+function hotspotLinkLabel(state: HotspotLinkState): string {
+    if (state === 'paired') {
+        return 'Linked';
+    }
+
+    if (state === 'outbound') {
+        return 'Outbound link';
+    }
+
+    if (state === 'inbound') {
+        return 'Inbound link';
+    }
+
+    if (state === 'mismatch') {
+        return 'Link mismatch';
+    }
+
+    return 'No link';
+}
+
+function hotspotLinkBadgeVariant(state: HotspotLinkState): 'default' | 'secondary' | 'outline' | 'destructive' {
+    if (state === 'paired') {
+        return 'default';
+    }
+
+    if (state === 'outbound' || state === 'inbound') {
+        return 'secondary';
+    }
+
+    if (state === 'mismatch') {
+        return 'destructive';
+    }
+
+    return 'outline';
+}
+
+function hotspotOverlayClass(hotspot: Hotspot): string {
+    const state = hotspotLinkState(hotspot);
+
+    if (state === 'paired') {
+        return 'border-emerald-500 bg-emerald-500/15 hover:bg-emerald-500/25';
+    }
+
+    if (state === 'outbound') {
+        return 'border-sky-500 bg-sky-500/15 hover:bg-sky-500/25';
+    }
+
+    if (state === 'inbound') {
+        return 'border-amber-500 bg-amber-500/15 hover:bg-amber-500/25';
+    }
+
+    if (state === 'mismatch') {
+        return 'border-rose-500 bg-rose-500/15 hover:bg-rose-500/25';
+    }
+
+    return 'border-slate-400 bg-slate-200/25 hover:bg-slate-200/45';
+}
+
+function hotspotOverlayChipText(state: HotspotLinkState): string {
+    if (state === 'paired') {
+        return 'L';
+    }
+
+    if (state === 'outbound') {
+        return 'OUT';
+    }
+
+    if (state === 'inbound') {
+        return 'IN';
+    }
+
+    if (state === 'mismatch') {
+        return 'ERR';
+    }
+
+    return '';
+}
+
+function hotspotOverlayTitle(hotspot: Hotspot): string {
+    const state = hotspotLinkState(hotspot);
+    const linkedId = hotspot.target_hotspot_id ?? hotspot.linked_hotspot_id ?? null;
+
+    if (linkedId !== null) {
+        return `Target page ${hotspot.target_page_no} • ${hotspotLinkLabel(state)} (#${linkedId})`;
+    }
+
+    return `Target page ${hotspot.target_page_no} • ${hotspotLinkLabel(state)}`;
+}
+
+function resetHotspotForm(): void {
+    hotspotForm.page_id = currentPage.value?.id ?? 0;
+    hotspotForm.relation_kind = 'next';
+    hotspotForm.target_page_no = defaultTargetPageNo();
+    hotspotForm.target_hotspot_id = null;
+    hotspotForm.x = 0;
+    hotspotForm.y = 0;
+    hotspotForm.w = 0;
+    hotspotForm.h = 0;
+    hotspotForm.label = '';
+    hotspotForm.clearErrors();
+}
+
+function openCreateDialog(rect: NormalizedRect): void {
+    if (currentPage.value === null) {
+        return;
+    }
+
+    resetHotspotForm();
+    areaEditHotspotId.value = null;
+    editingHotspotId.value = null;
+    activeHotspotId.value = null;
+    hotspotForm.x = rect.x;
+    hotspotForm.y = rect.y;
+    hotspotForm.w = rect.w;
+    hotspotForm.h = rect.h;
+    isDialogOpen.value = true;
+}
+
+function openEditDialog(hotspot: Hotspot): void {
+    if (currentPage.value === null) {
+        return;
+    }
+
+    resetHotspotForm();
+    areaEditHotspotId.value = null;
+    editingHotspotId.value = hotspot.id;
+    activeHotspotId.value = hotspot.id;
+    hotspotForm.relation_kind = hotspot.relation_kind;
+    hotspotForm.target_page_no = hotspot.target_page_no;
+
+    const connectedHotspotId = hotspot.target_hotspot_id ?? hotspot.linked_hotspot_id ?? null;
+    hotspotForm.target_hotspot_id = connectedHotspotId;
+
+    if (connectedHotspotId !== null) {
+        const connectedPageNo = pageNoForTargetHotspotId(connectedHotspotId);
+
+        if (connectedPageNo !== null) {
+            hotspotForm.target_page_no = connectedPageNo;
+        }
+    }
+
+    hotspotForm.x = hotspot.x;
+    hotspotForm.y = hotspot.y;
+    hotspotForm.w = hotspot.w;
+    hotspotForm.h = hotspot.h;
+    hotspotForm.label = hotspot.label ?? '';
+    isDialogOpen.value = true;
+}
+
+function tryOpenFocusedHotspot(): void {
+    const focusHotspotId = pendingFocusHotspotId.value;
+
+    if (focusHotspotId === null) {
+        return;
+    }
+
+    const hotspot = currentHotspots.value.find((item) => item.id === focusHotspotId);
+
+    if (hotspot === undefined) {
+        return;
+    }
+
+    openEditDialog(hotspot);
+    pendingFocusHotspotId.value = null;
+}
+
+function closeDialog(): void {
+    isDialogOpen.value = false;
+    editingHotspotId.value = null;
+    activeHotspotId.value = null;
+    hotspotForm.clearErrors();
+}
+
+function openLinkedHotspot(hotspot: Hotspot): void {
+    const linkedId = linkedHotspotId(hotspot);
+
+    if (linkedId === null) {
+        return;
+    }
+
+    const samePageTarget = currentHotspots.value.find((item) => item.id === linkedId);
+
+    if (samePageTarget !== undefined) {
+        openEditDialog(samePageTarget);
+        return;
+    }
+
+    const linkedLocation = hotspotLocationInEdition(linkedId);
+
+    if (linkedLocation === null) {
+        return;
+    }
+
+    router.get(
+        '/admin/hotspots',
+        {
+            page_id: linkedLocation.pageId,
+            focus_hotspot_id: linkedId,
+        },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            replace: true,
+        },
+    );
+}
+
+function saveHotspot(): void {
+    if (currentPage.value === null) {
+        return;
+    }
+
+    hotspotForm.page_id = currentPage.value.id;
+
+    const transformedForm = hotspotForm.transform((data) => ({
+        ...data,
+        target_hotspot_id: data.target_hotspot_id,
+        label: data.label.trim() === '' ? null : data.label.trim(),
+    }));
+
+    if (editingHotspotId.value === null) {
+        transformedForm.post('/admin/hotspots', {
+            preserveScroll: true,
+            forceFormData: false,
+            onSuccess: () => {
+                closeDialog();
+            },
+        });
+
+        return;
+    }
+
+    transformedForm.put(`/admin/hotspots/${editingHotspotId.value}`, {
+        preserveScroll: true,
+        forceFormData: false,
+        onSuccess: () => {
+            closeDialog();
+        },
+    });
+}
+
+function deleteHotspot(hotspot: Hotspot): void {
+    if (!window.confirm('Delete this hotspot?')) {
+        return;
+    }
+
+    router.delete(`/admin/hotspots/${hotspot.id}`, {
+        preserveScroll: true,
+    });
+}
+
+function onPageSelection(value: unknown): void {
+    if (value === null || value === undefined) {
+        return;
+    }
+
+    const normalizedValue = String(value);
+    selectedPageId.value = normalizedValue;
+    const pageId = Number.parseInt(normalizedValue, 10);
+
+    if (Number.isNaN(pageId) || pageId <= 0) {
+        return;
+    }
+
+    router.get(
+        '/admin/hotspots',
+        {
+            page_id: pageId,
+        },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            replace: true,
+        },
+    );
+}
+
+function jumpToAdjacentPage(direction: 'previous' | 'next'): void {
+    const index = selectedPageIndex.value;
+
+    if (index < 0) {
+        return;
+    }
+
+    const nextIndex = direction === 'previous' ? index - 1 : index + 1;
+    const targetPage = props.edition_pages[nextIndex];
+
+    if (targetPage === undefined) {
+        return;
+    }
+
+    onPageSelection(String(targetPage.id));
+}
+
+function goToPreviousPage(): void {
+    jumpToAdjacentPage('previous');
+}
+
+function goToNextPage(): void {
+    jumpToAdjacentPage('next');
+}
+
+function toggleDrawMode(): void {
+    drawModeEnabled.value = !drawModeEnabled.value;
+
+    if (!drawModeEnabled.value) {
+        areaEditHotspotId.value = null;
+    }
+}
+
+function startAreaEditSelection(hotspot: Hotspot): void {
+    areaEditHotspotId.value = hotspot.id;
+    activeHotspotId.value = hotspot.id;
+    drawModeEnabled.value = true;
+    draftRect.value = null;
+    drawing.value = false;
+    drawingStart.value = null;
+}
+
+function cancelAreaEditSelection(): void {
+    areaEditHotspotId.value = null;
+    draftRect.value = null;
+    drawing.value = false;
+    drawingStart.value = null;
+}
+
+function requestAreaEditFromDialog(): void {
+    if (editingHotspotId.value === null) {
+        return;
+    }
+
+    const hotspot = currentHotspots.value.find((item) => item.id === editingHotspotId.value);
+
+    if (hotspot === undefined) {
+        return;
+    }
+
+    closeDialog();
+    startAreaEditSelection(hotspot);
+}
+
+function focusHotspotOnCanvas(hotspot: Hotspot): void {
+    const viewport = canvasViewportRef.value;
+
+    if (viewport === null || imageDimensions.value.width <= 0 || imageDimensions.value.height <= 0) {
+        return;
+    }
+
+    const left = hotspot.x * imageDimensions.value.width;
+    const top = hotspot.y * imageDimensions.value.height;
+    const width = hotspot.w * imageDimensions.value.width;
+    const height = hotspot.h * imageDimensions.value.height;
+    const targetLeft = Math.max(0, left + width / 2 - viewport.clientWidth / 2);
+    const targetTop = Math.max(0, top + height / 2 - viewport.clientHeight / 2);
+
+    viewport.scrollTo({
+        left: targetLeft,
+        top: targetTop,
+        behavior: 'smooth',
+    });
+}
+
+function setHotspotStateFilter(filter: HotspotListFilter): void {
+    hotspotStateFilter.value = filter;
+}
+
+function hotspotCountForFilter(filter: HotspotListFilter): number {
+    if (filter === 'all') {
+        return currentHotspots.value.length;
+    }
+
+    return hotspotStats.value[filter];
+}
+
+function handleHotspotRowHover(hotspotId: number): void {
+    activeHotspotId.value = hotspotId;
+}
+
+function handleHotspotRowLeave(hotspotId: number): void {
+    if (editingHotspotId.value === hotspotId) {
+        return;
+    }
+
+    activeHotspotId.value = null;
+}
+
+function setHotspotRowRef(hotspotId: number, element: unknown): void {
+    if (element instanceof HTMLElement) {
+        hotspotRowRefs.set(hotspotId, element);
+        return;
+    }
+
+    hotspotRowRefs.delete(hotspotId);
+}
+
+function resetHotspotListControls(): void {
+    hotspotSearch.value = '';
+    hotspotStateFilter.value = 'all';
+    hotspotSort.value = 'id_asc';
+}
+
+function isEditableTarget(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement)) {
+        return false;
+    }
+
+    const tagName = target.tagName.toLowerCase();
+    return tagName === 'input' || tagName === 'textarea' || target.isContentEditable;
+}
+
+function onWindowKeydown(event: KeyboardEvent): void {
+    if (isDialogOpen.value || !hasPage.value || isEditableTarget(event.target)) {
+        return;
+    }
+
+    if (event.key === 'Escape' && areaEditHotspotId.value !== null) {
+        event.preventDefault();
+        cancelAreaEditSelection();
+        return;
+    }
+
+    if (event.key.toLowerCase() === 'd') {
+        event.preventDefault();
+        toggleDrawMode();
+        return;
+    }
+
+    if (event.key.toLowerCase() === 'e' && activeHotspotId.value !== null) {
+        const hotspot = currentHotspots.value.find((item) => item.id === activeHotspotId.value);
+
+        if (hotspot !== undefined) {
+            event.preventDefault();
+            startAreaEditSelection(hotspot);
+            return;
+        }
+    }
+
+    if (event.key.toLowerCase() === 'f' && activeHotspotId.value !== null) {
+        const hotspot = currentHotspots.value.find((item) => item.id === activeHotspotId.value);
+
+        if (hotspot !== undefined) {
+            event.preventDefault();
+            focusHotspotOnCanvas(hotspot);
+            return;
+        }
+    }
+
+    if (event.key === 'ArrowLeft' && hasPreviousPage.value) {
+        event.preventDefault();
+        goToPreviousPage();
+    }
+
+    if (event.key === 'ArrowRight' && hasNextPage.value) {
+        event.preventDefault();
+        goToNextPage();
+    }
+}
+</script>
+
+<template>
+    <Head title="Page Hotspots" />
+    <EpAdminLayout :breadcrumbs="breadcrumbs">
+        <div class="space-y-4 p-4">
+            <div class="space-y-1">
+                <h1 class="text-xl font-semibold">Mapping Editor</h1>
+                <p class="text-sm text-muted-foreground">
+                    Draw rectangles over a page and connect them to another page or a specific hotspot.
+                </p>
+            </div>
+
+            <Card v-if="hasPage" class="overflow-hidden">
+                <CardHeader class="space-y-3 border-b bg-muted/20">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div class="space-y-1">
+                            <CardTitle class="flex flex-wrap items-center gap-2">
+                                <span>Edition {{ props.edition?.edition_date }}</span>
+                                <Badge :variant="props.edition?.status === 'published' ? 'default' : 'secondary'">
+                                    {{ props.edition?.status }}
+                                </Badge>
+                            </CardTitle>
+                            <p class="text-sm text-muted-foreground">
+                                Draw a rectangle to create a hotspot, then connect it to a page or a specific linked hotspot.
+                            </p>
+                        </div>
+                        <Badge variant="outline">Page {{ currentPage?.page_no }}</Badge>
+                    </div>
+                </CardHeader>
+                <CardContent class="space-y-4 p-4">
+                    <div class="grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]">
+                        <div class="space-y-3 rounded-lg border bg-background p-3">
+                            <div class="flex items-center justify-between gap-2">
+                                <p class="text-xs uppercase tracking-wide text-muted-foreground">Selected page</p>
+                                <p class="text-xs font-medium text-muted-foreground">Page {{ currentPage?.page_no }}</p>
+                            </div>
+                            <Select :model-value="selectedPageId" @update:model-value="onPageSelection">
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select page" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem
+                                        v-for="item in props.edition_pages"
+                                        :key="item.id"
+                                        :value="String(item.id)"
+                                    >
+                                        Page {{ item.page_no }}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <div class="grid grid-cols-2 gap-2">
+                                <Button size="sm" variant="outline" :disabled="!hasPreviousPage" @click="goToPreviousPage">
+                                    Previous page
+                                </Button>
+                                <Button size="sm" variant="outline" :disabled="!hasNextPage" @click="goToNextPage">
+                                    Next page
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div class="space-y-1 rounded-lg border bg-background p-3">
+                            <p class="text-xs uppercase tracking-wide text-muted-foreground">Total pages</p>
+                            <p class="text-2xl font-semibold">{{ props.edition?.pages_count ?? 0 }}</p>
+                            <p class="text-xs text-muted-foreground">Max page {{ props.edition?.max_page_no ?? 0 }}</p>
+                        </div>
+
+                        <div class="space-y-1 rounded-lg border bg-background p-3">
+                            <p class="text-xs uppercase tracking-wide text-muted-foreground">Hotspots on this page</p>
+                            <p class="text-2xl font-semibold">{{ currentHotspots.length }}</p>
+                            <p class="text-xs text-muted-foreground">Linked: {{ hotspotStats.paired }}</p>
+                        </div>
+
+                        <div class="space-y-1 rounded-lg border bg-background p-3">
+                            <p class="text-xs uppercase tracking-wide text-muted-foreground">Needs attention</p>
+                            <p class="text-2xl font-semibold">{{ hotspotStats.mismatch }}</p>
+                            <p class="text-xs text-muted-foreground">
+                                Outbound {{ hotspotStats.outbound }} • Inbound {{ hotspotStats.inbound }} • Unlinked {{ hotspotStats.none }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
+                        <div class="space-y-3">
+                            <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-background px-3 py-2 text-xs">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <Badge variant="default">Linked {{ hotspotStats.paired }}</Badge>
+                                    <Badge variant="secondary">Outbound / Inbound {{ hotspotStats.outbound + hotspotStats.inbound }}</Badge>
+                                    <Badge variant="destructive">Mismatch {{ hotspotStats.mismatch }}</Badge>
+                                    <Badge variant="outline">No link {{ hotspotStats.none }}</Badge>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <Button
+                                        size="sm"
+                                        :variant="drawModeEnabled ? 'default' : 'outline'"
+                                        @click="toggleDrawMode"
+                                    >
+                                        {{ drawModeEnabled ? 'Draw mode on' : 'Draw mode off' }}
+                                    </Button>
+                                    <p class="text-muted-foreground">Shortcut: ← / → page, D draw mode, E area edit, F locate</p>
+                                </div>
+                            </div>
+                            <div
+                                v-if="areaEditTargetHotspot !== null"
+                                class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-xs text-blue-900"
+                            >
+                                <div class="space-y-1">
+                                    <p>
+                                    Area edit mode: drag on image to update hotspot #{{ areaEditTargetHotspot.id }}.
+                                    Press <span class="font-semibold">Esc</span> to cancel.
+                                    </p>
+                                    <p v-if="areaEditOriginalSummary !== null" class="text-blue-800/90">
+                                        Current area: x={{ areaEditOriginalSummary.x }}, y={{ areaEditOriginalSummary.y }},
+                                        w={{ areaEditOriginalSummary.w }}, h={{ areaEditOriginalSummary.h }}
+                                    </p>
+                                </div>
+                                <Button size="sm" variant="outline" @click="cancelAreaEditSelection">
+                                    Cancel
+                                </Button>
+                            </div>
+                            <div
+                                v-if="draftRectSummary !== null"
+                                class="rounded-lg border bg-muted/20 px-3 py-2 text-xs text-muted-foreground"
+                            >
+                                Selection: x={{ draftRectSummary.x }}, y={{ draftRectSummary.y }}, w={{ draftRectSummary.w }}, h={{ draftRectSummary.h }}
+                            </div>
+
+                            <div ref="canvasViewportRef" class="overflow-auto rounded-xl border bg-background p-3 shadow-sm">
+                                <div class="relative w-full">
+                                    <img
+                                        ref="imageRef"
+                                        :src="imageSource"
+                                        :alt="`Page ${currentPage?.page_no}`"
+                                        class="block h-auto w-full rounded-md"
+                                        draggable="false"
+                                        @load="updateImageDimensions"
+                                    />
+
+                                    <div
+                                        v-if="imageDimensions.width > 0 && imageDimensions.height > 0"
+                                        class="pointer-events-none absolute left-0 top-0"
+                                        :style="overlayStyle"
+                                    >
+                                        <button
+                                            v-for="hotspot in currentHotspots"
+                                            :key="hotspot.id"
+                                            type="button"
+                                            class="pointer-events-auto absolute rounded-sm border-2 transition-colors"
+                                            :class="[
+                                                hotspotOverlayClass(hotspot),
+                                                activeHotspotId === hotspot.id
+                                                    ? 'ring-2 ring-primary ring-offset-1 ring-offset-background'
+                                                    : '',
+                                            ]"
+                                            :style="hotspotToStyle(hotspot)"
+                                            :title="hotspotOverlayTitle(hotspot)"
+                                            @mouseenter="activeHotspotId = hotspot.id"
+                                            @mouseleave="handleHotspotRowLeave(hotspot.id)"
+                                            @click.prevent="openEditDialog(hotspot)"
+                                        >
+                                            <span
+                                                v-if="hotspotLinkState(hotspot) !== 'none'"
+                                                class="pointer-events-none absolute -top-2 left-0 rounded bg-slate-900/85 px-1 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-wide text-white"
+                                            >
+                                                {{ hotspotOverlayChipText(hotspotLinkState(hotspot)) }}
+                                            </span>
+                                        </button>
+
+                                        <div
+                                            v-if="areaEditTargetHotspot !== null"
+                                            class="absolute rounded-sm border-2 border-dashed border-blue-700/85 bg-blue-600/10"
+                                            :style="hotspotToStyle(areaEditTargetHotspot)"
+                                        />
+
+                                        <div
+                                            v-if="hasDraftRect && draftRect !== null"
+                                            class="absolute rounded-sm border-2"
+                                            :class="areaEditTargetHotspot !== null ? 'border-sky-500 bg-sky-500/20' : 'border-blue-500 bg-blue-500/15'"
+                                            :style="hotspotToStyle(draftRect)"
+                                        />
+                                    </div>
+
+                                    <div
+                                        v-if="drawModeEnabled && imageDimensions.width > 0 && imageDimensions.height > 0"
+                                        class="absolute left-0 top-0 cursor-crosshair touch-none"
+                                        :style="overlayStyle"
+                                        @mousedown="onMouseDown"
+                                        @mousemove="onMouseMove"
+                                        @mouseup="onMouseUp"
+                                        @touchstart.prevent="onTouchStart"
+                                        @touchmove.prevent="onTouchMove"
+                                        @touchend.prevent="onTouchEnd"
+                                        @touchcancel.prevent="onTouchEnd"
+                                    />
+                                    <div
+                                        v-if="!drawModeEnabled && imageDimensions.width > 0 && imageDimensions.height > 0"
+                                        class="pointer-events-none absolute right-2 top-2 rounded bg-slate-900/80 px-2 py-1 text-[11px] font-medium text-white"
+                                    >
+                                        Draw mode off
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex min-h-[24rem] flex-col rounded-xl border bg-background xl:sticky xl:top-4 xl:max-h-[calc(100vh-10rem)]">
+                            <div class="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
+                                <div>
+                                    <h2 class="text-sm font-semibold">Existing hotspots</h2>
+                                    <p class="text-xs text-muted-foreground">
+                                        {{ filteredHotspots.length }} of {{ currentHotspots.length }} shown
+                                    </p>
+                                </div>
+                                <Badge variant="outline">{{ currentHotspots.length }}</Badge>
+                            </div>
+                            <div class="flex flex-col gap-3 border-b p-3">
+                                <Input
+                                    v-model="hotspotSearch"
+                                    type="text"
+                                    placeholder="Search by id, relation, page, label, or link"
+                                />
+                                <div class="space-y-2">
+                                    <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Sort</p>
+                                    <Select v-model="hotspotSort">
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Sort hotspots" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="id_asc">ID (oldest first)</SelectItem>
+                                            <SelectItem value="id_desc">ID (newest first)</SelectItem>
+                                            <SelectItem value="target_page">Target page</SelectItem>
+                                            <SelectItem value="relation">Relation kind</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div class="flex flex-wrap gap-2">
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        :class="hotspotStateFilter === 'all' ? 'border-primary bg-primary/10 text-primary' : ''"
+                                        @click="setHotspotStateFilter('all')"
+                                    >
+                                        All {{ hotspotCountForFilter('all') }}
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        :class="hotspotStateFilter === 'paired' ? 'border-primary bg-primary/10 text-primary' : ''"
+                                        @click="setHotspotStateFilter('paired')"
+                                    >
+                                        Linked {{ hotspotCountForFilter('paired') }}
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        :class="hotspotStateFilter === 'outbound' ? 'border-primary bg-primary/10 text-primary' : ''"
+                                        @click="setHotspotStateFilter('outbound')"
+                                    >
+                                        Out {{ hotspotCountForFilter('outbound') }}
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        :class="hotspotStateFilter === 'inbound' ? 'border-primary bg-primary/10 text-primary' : ''"
+                                        @click="setHotspotStateFilter('inbound')"
+                                    >
+                                        In {{ hotspotCountForFilter('inbound') }}
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        :class="hotspotStateFilter === 'mismatch' ? 'border-primary bg-primary/10 text-primary' : ''"
+                                        @click="setHotspotStateFilter('mismatch')"
+                                    >
+                                        Mismatch {{ hotspotCountForFilter('mismatch') }}
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        :class="hotspotStateFilter === 'none' ? 'border-primary bg-primary/10 text-primary' : ''"
+                                        @click="setHotspotStateFilter('none')"
+                                    >
+                                        No link {{ hotspotCountForFilter('none') }}
+                                    </Button>
+                                </div>
+                                <div class="flex flex-wrap gap-2">
+                                    <Button
+                                        v-if="hotspotSearch.trim() !== ''"
+                                        size="sm"
+                                        variant="ghost"
+                                        class="w-fit"
+                                        @click="hotspotSearch = ''"
+                                    >
+                                        Clear search
+                                    </Button>
+                                    <Button
+                                        v-if="hasActiveListControls"
+                                        size="sm"
+                                        variant="outline"
+                                        class="w-fit"
+                                        @click="resetHotspotListControls"
+                                    >
+                                        Reset filters
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <div class="flex-1 space-y-3 overflow-y-auto p-3">
+                                <div
+                                    v-for="hotspot in filteredHotspots"
+                                    :key="hotspot.id"
+                                    :ref="(element) => setHotspotRowRef(hotspot.id, element)"
+                                    role="button"
+                                    tabindex="0"
+                                    class="cursor-pointer space-y-3 rounded-lg border bg-card p-3 shadow-sm transition hover:border-primary/40"
+                                    :class="activeHotspotId === hotspot.id ? 'border-primary bg-primary/5' : ''"
+                                    @mouseenter="handleHotspotRowHover(hotspot.id)"
+                                    @mouseleave="handleHotspotRowLeave(hotspot.id)"
+                                    @focus="handleHotspotRowHover(hotspot.id)"
+                                    @blur="handleHotspotRowLeave(hotspot.id)"
+                                    @click="openEditDialog(hotspot)"
+                                    @keydown.enter.prevent="openEditDialog(hotspot)"
+                                    @keydown.space.prevent="openEditDialog(hotspot)"
+                                >
+                                    <div class="flex items-start gap-3">
+                                        <div class="relative h-16 w-24 shrink-0 overflow-hidden rounded-md border bg-muted/30">
+                                            <img
+                                                v-if="imageSource !== ''"
+                                                :src="imageSource"
+                                                alt=""
+                                                class="pointer-events-none absolute select-none"
+                                                draggable="false"
+                                                :style="hotspotThumbnailImageStyle(hotspot)"
+                                            />
+                                            <div
+                                                v-else
+                                                class="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground"
+                                            >
+                                                No preview
+                                            </div>
+                                        </div>
+
+                                        <div class="min-w-0 flex-1 space-y-2 text-sm">
+                                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                                <p class="font-medium">#{{ hotspot.id }}</p>
+                                                <Badge :variant="hotspotLinkBadgeVariant(hotspotLinkState(hotspot))">
+                                                    {{ hotspotLinkLabel(hotspotLinkState(hotspot)) }}
+                                                </Badge>
+                                            </div>
+                                            <p class="text-muted-foreground">
+                                                {{ hotspot.relation_kind }} → page {{ hotspot.target_page_no }}
+                                            </p>
+                                            <p v-if="hotspot.target_hotspot_id || hotspot.linked_hotspot_id" class="text-muted-foreground">
+                                                Linked hotspot: #{{ hotspot.target_hotspot_id ?? hotspot.linked_hotspot_id }}
+                                                <span v-if="linkedHotspotPageNo(hotspot) !== null">
+                                                    (Page {{ linkedHotspotPageNo(hotspot) }})
+                                                </span>
+                                            </p>
+                                            <p v-if="hotspot.label" class="truncate text-muted-foreground">{{ hotspot.label }}</p>
+                                            <p class="font-mono text-xs text-muted-foreground">
+                                                x={{ hotspot.x }}, y={{ hotspot.y }}, w={{ hotspot.w }}, h={{ hotspot.h }}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="flex flex-wrap gap-2">
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            class="flex-1 sm:flex-none"
+                                            @click.stop="focusHotspotOnCanvas(hotspot)"
+                                        >
+                                            Locate
+                                        </Button>
+                                        <Button size="sm" variant="outline" class="flex-1 sm:flex-none" @click.stop="openEditDialog(hotspot)">
+                                            Edit
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            :variant="areaEditHotspotId === hotspot.id ? 'default' : 'outline'"
+                                            class="flex-1 sm:flex-none"
+                                            @click.stop="areaEditHotspotId === hotspot.id ? cancelAreaEditSelection() : startAreaEditSelection(hotspot)"
+                                        >
+                                            {{ areaEditHotspotId === hotspot.id ? 'Cancel area edit' : 'Drag area' }}
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="secondary"
+                                            class="flex-1 sm:flex-none"
+                                            :disabled="linkedHotspotId(hotspot) === null"
+                                            @click.stop="openLinkedHotspot(hotspot)"
+                                        >
+                                            Open linked
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="destructive"
+                                            class="flex-1 sm:flex-none"
+                                            @click.stop="deleteHotspot(hotspot)"
+                                        >
+                                            Delete
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                <p v-if="filteredHotspots.length === 0 && currentHotspots.length > 0" class="text-sm text-muted-foreground">
+                                    No hotspots match your search.
+                                </p>
+                                <p v-if="currentHotspots.length === 0" class="text-sm text-muted-foreground">
+                                    No hotspots yet. Draw a rectangle on the page image to create one.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card v-else>
+                <CardContent class="py-6 text-sm text-muted-foreground">
+                    No pages found yet. Upload pages first, then open mapping.
+                </CardContent>
+            </Card>
+
+            <Dialog v-model:open="isDialogOpen">
+                <DialogContent class="sm:max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>{{ hotspotDialogTitle }}</DialogTitle>
+                        <DialogDescription>
+                            Configure relation, target page, and optionally a specific target hotspot.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div class="space-y-4">
+                        <div class="space-y-3 rounded-lg border bg-muted/20 p-3">
+                            <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Link settings</p>
+                            <div class="grid gap-3 md:grid-cols-2">
+                                <div class="space-y-2">
+                                    <label class="text-sm font-medium">Relation kind</label>
+                                    <Select v-model="hotspotForm.relation_kind">
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select relation" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="next">next</SelectItem>
+                                            <SelectItem value="previous">previous</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <InputError :message="hotspotForm.errors.relation_kind" />
+                                </div>
+
+                                <div class="space-y-2">
+                                    <label class="text-sm font-medium">Target page</label>
+                                    <Select v-model="hotspotForm.target_page_no">
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select target page" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem
+                                                v-for="pageNo in targetPageNumbers"
+                                                :key="pageNo"
+                                                :value="pageNo"
+                                            >
+                                                Page {{ pageNo }}
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <InputError :message="hotspotForm.errors.target_page_no" />
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium">Target hotspot (optional)</label>
+                                <Select v-model="targetHotspotSelectValue">
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Any hotspot on target page" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="__none">Any hotspot on target page</SelectItem>
+                                        <SelectItem
+                                            v-for="targetHotspot in availableTargetHotspots"
+                                            :key="targetHotspot.id"
+                                            :value="String(targetHotspot.id)"
+                                        >
+                                            #{{ targetHotspot.id }}
+                                            <span v-if="targetHotspot.label"> - {{ targetHotspot.label }}</span>
+                                            <span class="text-muted-foreground">
+                                                ({{ targetHotspot.relation_kind }} → {{ targetHotspot.target_page_no }})
+                                            </span>
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <InputError :message="hotspotForm.errors.target_hotspot_id" />
+                            </div>
+                        </div>
+
+                        <div class="space-y-3 rounded-lg border p-3">
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium">Label (optional)</label>
+                                <Input v-model="hotspotForm.label" placeholder="Optional label" />
+                                <InputError :message="hotspotForm.errors.label" />
+                            </div>
+
+                            <div v-if="editingHotspotId !== null" class="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/20 p-2">
+                                <p class="text-xs text-muted-foreground">Need a new area? Drag-select directly on the page image.</p>
+                                <Button size="sm" variant="outline" @click="requestAreaEditFromDialog">
+                                    Edit area by drag
+                                </Button>
+                            </div>
+
+                            <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Coordinates (normalized)</p>
+                            <div class="grid gap-3 md:grid-cols-2">
+                                <div class="space-y-2">
+                                    <label class="text-sm font-medium">x</label>
+                                    <Input v-model.number="hotspotForm.x" type="number" step="0.000001" min="0" max="1" />
+                                    <InputError :message="hotspotForm.errors.x" />
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="text-sm font-medium">y</label>
+                                    <Input v-model.number="hotspotForm.y" type="number" step="0.000001" min="0" max="1" />
+                                    <InputError :message="hotspotForm.errors.y" />
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="text-sm font-medium">w</label>
+                                    <Input v-model.number="hotspotForm.w" type="number" step="0.000001" min="0.000001" max="1" />
+                                    <InputError :message="hotspotForm.errors.w" />
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="text-sm font-medium">h</label>
+                                    <Input v-model.number="hotspotForm.h" type="number" step="0.000001" min="0.000001" max="1" />
+                                    <InputError :message="hotspotForm.errors.h" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" :disabled="hotspotForm.processing" @click="closeDialog">
+                            Cancel
+                        </Button>
+                        <Button :disabled="hotspotForm.processing" @click="saveHotspot">
+                            {{ hotspotDialogActionText }}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </div>
+    </EpAdminLayout>
+</template>

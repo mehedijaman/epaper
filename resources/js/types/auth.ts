@@ -1,0 +1,30 @@
+export type User = {
+    id: number;
+    name: string;
+    email: string;
+    avatar?: string;
+    email_verified_at: string | null;
+    created_at: string;
+    updated_at: string;
+    [key: string]: unknown;
+};
+
+export type Auth = {
+    user: User;
+    roles: string[];
+    permissions: string[];
+    abilities: {
+        categories_manage: boolean;
+        ads_manage: boolean;
+        settings_manage: boolean;
+        editions_manage: boolean;
+    };
+    is_admin: boolean;
+    is_operator: boolean;
+};
+
+export type TwoFactorConfigContent = {
+    title: string;
+    description: string;
+    buttonText: string;
+};
