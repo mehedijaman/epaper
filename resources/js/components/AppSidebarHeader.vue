@@ -9,6 +9,25 @@ import type { BreadcrumbItem } from '@/types';
 
 const page = usePage();
 const isAdminPanelRoute = computed(() => page.url.startsWith('/admin'));
+const publicHomeUrl = computed(() => {
+    if (typeof window === 'undefined') {
+        return '/';
+    }
+
+    return new URL('/', window.location.origin).toString();
+});
+
+function openPublicHomeInNewTab(): void {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    const openedWindow = window.open(publicHomeUrl.value, '_blank');
+
+    if (openedWindow !== null) {
+        openedWindow.opener = null;
+    }
+}
 
 withDefaults(
     defineProps<{
@@ -32,12 +51,10 @@ withDefaults(
         </div>
 
         <div v-if="isAdminPanelRoute" class="ml-auto">
-            <Button as-child size="sm" variant="outline" class="gap-2">
-                <a href="/" target="_blank" rel="noopener noreferrer">
-                    <ExternalLink class="size-4" />
-                    <span class="hidden sm:inline">Open Public Home</span>
-                    <span class="sm:hidden">Public Home</span>
-                </a>
+            <Button size="sm" variant="outline" class="gap-2" @click="openPublicHomeInNewTab">
+                <ExternalLink class="size-4" />
+                <span class="hidden sm:inline">Open Public Home</span>
+                <span class="sm:hidden">Public Home</span>
             </Button>
         </div>
     </header>
