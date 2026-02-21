@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { Copy, Facebook, MessageCircle, Printer, Send, Twitter } from 'lucide-vue-next';
-import { computed, ref, watch } from 'vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -8,19 +7,9 @@ import {
     DialogFooter,
 } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
-import type { Hotspot } from '@/types';
 
 const props = defineProps<{
     open: boolean;
-    hotspots: Hotspot[];
     activeHotspotId: number | null;
     currentPageNo: number | null;
     previewUrl: string | null;
@@ -28,61 +17,11 @@ const props = defineProps<{
     linkedPreviewUrl: string | null;
     linkedLoading: boolean;
     linkedPageNo: number | null;
-    linkedHotspotId: number | null;
 }>();
 
 const emit = defineEmits<{
     close: [];
-    goTarget: [targetPageNo: number];
-    goLinked: [payload: { linkedPageNo: number; linkedHotspotId: number | null }];
-    selectHotspot: [hotspotId: number];
 }>();
-
-const shareFeedback = ref('');
-
-const activeHotspot = computed<Hotspot | null>(() => {
-    if (props.activeHotspotId === null) {
-        return null;
-    }
-
-    return props.hotspots.find((hotspot) => hotspot.id === props.activeHotspotId) ?? null;
-});
-
-const canGoTarget = computed(() => {
-    return activeHotspot.value !== null && activeHotspot.value.target_page_no > 0;
-});
-
-const canGoLinked = computed(() => {
-    if (props.linkedPageNo === null || props.linkedPageNo <= 0) {
-        return false;
-    }
-
-    if (props.currentPageNo === null) {
-        return true;
-    }
-
-    if (props.linkedPageNo !== props.currentPageNo) {
-        return true;
-    }
-
-    if (props.linkedHotspotId === null) {
-        return false;
-    }
-
-    return props.linkedHotspotId !== props.activeHotspotId;
-});
-
-const linkedActionLabel = computed(() => {
-    if (props.linkedPageNo === null) {
-        return 'Go linked page -';
-    }
-
-    if (props.currentPageNo !== null && props.linkedPageNo === props.currentPageNo) {
-        return `Open linked hotspot ${props.linkedHotspotId ?? '-'}`;
-    }
-
-    return `Go linked page ${props.linkedPageNo}`;
-});
 
 function handleOpenChange(isOpen: boolean): void {
     if (!isOpen) {
@@ -110,23 +49,20 @@ function shareText(): string {
 }
 
 async function copyLink(): Promise<void> {
-    const url = hotspotShareUrl(activeHotspot.value?.id ?? null);
+    const url = hotspotShareUrl(props.activeHotspotId);
 
     if (url === '') {
-        shareFeedback.value = 'Unable to build share link.';
         return;
     }
 
     if (typeof navigator === 'undefined' || navigator.clipboard === undefined) {
-        shareFeedback.value = 'Clipboard is not available on this browser.';
         return;
     }
 
     try {
         await navigator.clipboard.writeText(url);
-        shareFeedback.value = 'Link copied.';
     } catch {
-        shareFeedback.value = 'Copy failed.';
+        // Ignore clipboard errors silently in icon-only footer UI.
     }
 }
 
@@ -139,7 +75,7 @@ function openShareUrl(url: string): void {
 }
 
 function shareToWhatsApp(): void {
-    const url = hotspotShareUrl(activeHotspot.value?.id ?? null);
+    const url = hotspotShareUrl(props.activeHotspotId);
 
     if (url === '') {
         return;
@@ -150,7 +86,7 @@ function shareToWhatsApp(): void {
 }
 
 function shareToFacebook(): void {
-    const url = hotspotShareUrl(activeHotspot.value?.id ?? null);
+    const url = hotspotShareUrl(props.activeHotspotId);
 
     if (url === '') {
         return;
@@ -160,7 +96,7 @@ function shareToFacebook(): void {
 }
 
 function shareToX(): void {
-    const url = hotspotShareUrl(activeHotspot.value?.id ?? null);
+    const url = hotspotShareUrl(props.activeHotspotId);
 
     if (url === '') {
         return;
@@ -172,7 +108,7 @@ function shareToX(): void {
 }
 
 function shareToTelegram(): void {
-    const url = hotspotShareUrl(activeHotspot.value?.id ?? null);
+    const url = hotspotShareUrl(props.activeHotspotId);
 
     if (url === '') {
         return;
@@ -189,14 +125,12 @@ function printPreview(): void {
     }
 
     if (props.previewUrl === null || props.previewUrl === '') {
-        shareFeedback.value = 'Preview unavailable for print.';
         return;
     }
 
     const printWindow = window.open('', '_blank', 'noopener,noreferrer');
 
     if (printWindow === null) {
-        shareFeedback.value = 'Unable to open print window.';
         return;
     }
 
@@ -206,7 +140,6 @@ function printPreview(): void {
     printDocument.close();
 
     if (printDocument.head === null || printDocument.body === null) {
-        shareFeedback.value = 'Unable to prepare print view.';
         printWindow.close();
         return;
     }
@@ -253,7 +186,6 @@ function printPreview(): void {
         image.addEventListener(
             'error',
             () => {
-                shareFeedback.value = 'Unable to load preview for print.';
                 printWindow.close();
             },
             { once: true },
@@ -268,161 +200,78 @@ function printPreview(): void {
         { once: true },
     );
 }
-
-function goToTargetPage(): void {
-    const targetPageNo = activeHotspot.value?.target_page_no ?? 0;
-
-    if (targetPageNo <= 0) {
-        return;
-    }
-
-    emit('goTarget', targetPageNo);
-}
-
-function goToLinkedPage(): void {
-    if (!canGoLinked.value || props.linkedPageNo === null) {
-        return;
-    }
-
-    emit('goLinked', {
-        linkedPageNo: props.linkedPageNo,
-        linkedHotspotId: props.linkedHotspotId,
-    });
-}
-
-watch(
-    () => props.activeHotspotId,
-    () => {
-        shareFeedback.value = '';
-    },
-);
 </script>
 
 <template>
     <Dialog :open="open" @update:open="handleOpenChange">
-        <DialogContent class="max-h-[90vh] overflow-y-auto p-4 sm:max-w-4xl sm:p-6">
-            <div class="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-                <div class="space-y-4">
-                    <div class="space-y-2">
-                        <h4 class="text-sm font-semibold">Selected hotspot</h4>
-                        <div class="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
-                            <div v-if="loading" class="flex h-52 items-center justify-center">
-                                <Spinner class="size-6" />
-                            </div>
-                            <img
-                                v-else-if="previewUrl"
-                                :src="previewUrl"
-                                alt="Hotspot cropped preview"
-                                class="h-auto max-h-[42vh] w-full object-contain"
-                            />
-                            <div v-else class="flex h-32 items-center justify-center px-4 text-sm text-muted-foreground">
-                                Preview unavailable for this hotspot.
-                            </div>
+        <DialogContent :show-close-button="false" class="max-h-[90vh] overflow-y-auto p-4 sm:max-w-4xl sm:p-6">
+            <div class="space-y-4">
+                <div class="space-y-2">
+                    <div class="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+                        <div v-if="loading" class="flex h-52 items-center justify-center">
+                            <Spinner class="size-6" />
                         </div>
-                    </div>
-
-                    <div class="space-y-2">
-                        <h4 class="text-sm font-semibold">
-                            Linked hotspot
-                            <span v-if="linkedPageNo !== null" class="font-normal text-muted-foreground">
-                                (Page {{ linkedPageNo }})
-                            </span>
-                        </h4>
-                        <div class="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
-                            <div v-if="linkedLoading" class="flex h-52 items-center justify-center">
-                                <Spinner class="size-6" />
-                            </div>
-                            <img
-                                v-else-if="linkedPreviewUrl"
-                                :src="linkedPreviewUrl"
-                                alt="Linked hotspot cropped preview"
-                                class="h-auto max-h-[42vh] w-full object-contain"
-                            />
-                            <div v-else class="flex h-24 items-center justify-center px-4 text-sm text-muted-foreground">
-                                No linked hotspot preview found.
-                            </div>
+                        <img
+                            v-else-if="previewUrl"
+                            :src="previewUrl"
+                            alt="Hotspot cropped preview"
+                            class="h-auto max-h-[42vh] w-full object-contain"
+                        />
+                        <div v-else class="flex h-32 items-center justify-center px-4 text-sm text-muted-foreground">
+                            Preview unavailable for this hotspot.
                         </div>
                     </div>
                 </div>
 
-                <section class="space-y-2">
-                    <h4 class="text-sm font-semibold">Mapped hotspots on this page</h4>
-                    <div class="max-h-[45vh] overflow-auto rounded-md border sm:max-h-[55vh]">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>ID</TableHead>
-                                    <TableHead>Relation</TableHead>
-                                    <TableHead>Target</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                <TableRow
-                                    v-for="hotspot in hotspots"
-                                    :key="hotspot.id"
-                                    class="cursor-pointer"
-                                    :class="hotspot.id === activeHotspot?.id ? 'bg-sky-50' : ''"
-                                    @click="emit('selectHotspot', hotspot.id)"
-                                >
-                                    <TableCell class="font-medium">#{{ hotspot.id }}</TableCell>
-                                    <TableCell>{{ hotspot.relation_kind }}</TableCell>
-                                    <TableCell>Page {{ hotspot.target_page_no }}</TableCell>
-                                </TableRow>
-                                <TableRow v-if="hotspots.length === 0">
-                                    <TableCell colspan="3" class="text-center text-sm text-muted-foreground">
-                                        No hotspots on this page.
-                                    </TableCell>
-                                </TableRow>
-                            </TableBody>
-                        </Table>
+                <div class="space-y-2">
+                    <h4 class="text-sm font-semibold">
+                        Linked hotspot
+                        <span v-if="linkedPageNo !== null" class="font-normal text-muted-foreground">
+                            (Page {{ linkedPageNo }})
+                        </span>
+                    </h4>
+                    <div class="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+                        <div v-if="linkedLoading" class="flex h-52 items-center justify-center">
+                            <Spinner class="size-6" />
+                        </div>
+                        <img
+                            v-else-if="linkedPreviewUrl"
+                            :src="linkedPreviewUrl"
+                            alt="Linked hotspot cropped preview"
+                            class="h-auto max-h-[42vh] w-full object-contain"
+                        />
+                        <div v-else class="flex h-24 items-center justify-center px-4 text-sm text-muted-foreground">
+                            No linked hotspot preview found.
+                        </div>
                     </div>
-                </section>
+                </div>
             </div>
 
-            <DialogFooter class="mt-2 flex-col items-stretch gap-3 sm:items-stretch">
-                <section class="w-full space-y-2 rounded border bg-background p-3">
-                    <h4 class="text-sm font-semibold">Share</h4>
-                    <div class="flex flex-wrap items-center gap-2">
-                        <Button variant="outline" size="icon" type="button" title="Copy link" aria-label="Copy link" @click="copyLink">
-                            <Copy class="size-4" />
-                        </Button>
-                        <Button variant="outline" size="icon" type="button" title="Share to WhatsApp" aria-label="Share to WhatsApp" @click="shareToWhatsApp">
-                            <MessageCircle class="size-4" />
-                        </Button>
-                        <Button variant="outline" size="icon" type="button" title="Share to Facebook" aria-label="Share to Facebook" @click="shareToFacebook">
-                            <Facebook class="size-4" />
-                        </Button>
-                        <Button variant="outline" size="icon" type="button" title="Share to X" aria-label="Share to X" @click="shareToX">
-                            <Twitter class="size-4" />
-                        </Button>
-                        <Button variant="outline" size="icon" type="button" title="Share to Telegram" aria-label="Share to Telegram" @click="shareToTelegram">
-                            <Send class="size-4" />
-                        </Button>
-                        <Button variant="outline" size="icon" type="button" title="Print hotspot preview" aria-label="Print hotspot preview" @click="printPreview">
-                            <Printer class="size-4" />
-                        </Button>
-                    </div>
-                    <p v-if="shareFeedback !== ''" class="text-xs text-muted-foreground">
-                        {{ shareFeedback }}
-                    </p>
-                </section>
-
-                <div class="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
-                    <Button variant="outline" class="w-full sm:w-auto" @click="emit('close')">
-                        Close
+            <DialogFooter class="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div class="flex flex-wrap items-center gap-2">
+                    <Button variant="outline" size="icon" type="button" title="Copy link" aria-label="Copy link" @click="copyLink">
+                        <Copy class="size-4" />
                     </Button>
-                    <Button
-                        variant="outline"
-                        class="w-full sm:w-auto"
-                        :disabled="!canGoLinked"
-                        @click="goToLinkedPage"
-                    >
-                        {{ linkedActionLabel }}
+                    <Button variant="outline" size="icon" type="button" title="Share to WhatsApp" aria-label="Share to WhatsApp" @click="shareToWhatsApp">
+                        <MessageCircle class="size-4" />
                     </Button>
-                    <Button class="w-full sm:w-auto" :disabled="!canGoTarget" @click="goToTargetPage">
-                        Go to page {{ activeHotspot?.target_page_no ?? '-' }}
+                    <Button variant="outline" size="icon" type="button" title="Share to Facebook" aria-label="Share to Facebook" @click="shareToFacebook">
+                        <Facebook class="size-4" />
+                    </Button>
+                    <Button variant="outline" size="icon" type="button" title="Share to X" aria-label="Share to X" @click="shareToX">
+                        <Twitter class="size-4" />
+                    </Button>
+                    <Button variant="outline" size="icon" type="button" title="Share to Telegram" aria-label="Share to Telegram" @click="shareToTelegram">
+                        <Send class="size-4" />
+                    </Button>
+                    <Button variant="outline" size="icon" type="button" title="Print hotspot preview" aria-label="Print hotspot preview" @click="printPreview">
+                        <Printer class="size-4" />
                     </Button>
                 </div>
+
+                <Button variant="outline" class="w-full sm:w-auto" @click="emit('close')">
+                    Close
+                </Button>
             </DialogFooter>
         </DialogContent>
     </Dialog>

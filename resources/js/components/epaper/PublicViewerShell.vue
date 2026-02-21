@@ -78,7 +78,6 @@ const activeHotspotId = ref<number | null>(null);
 const hotspotPreviewUrl = ref<string | null>(null);
 const linkedHotspotPreviewUrl = ref<string | null>(null);
 const linkedHotspotPageNo = ref<number | null>(null);
-const linkedHotspotId = ref<number | null>(null);
 const isGeneratingPreview = ref(false);
 const isGeneratingLinkedPreview = ref(false);
 const hotspotPreviewImage = ref<HTMLImageElement | null>(null);
@@ -512,7 +511,6 @@ function refreshViewerSectionObserver(): void {
 function resetLinkedHotspotPreview(): void {
     linkedHotspotPreviewUrl.value = null;
     linkedHotspotPageNo.value = null;
-    linkedHotspotId.value = null;
     isGeneratingLinkedPreview.value = false;
     linkedPreviewJobId += 1;
 }
@@ -702,7 +700,6 @@ async function updateLinkedHotspotPreview(sourceHotspot: Hotspot): Promise<void>
     }
 
     linkedHotspotPageNo.value = linked.pageNo;
-    linkedHotspotId.value = linked.hotspot.id;
     isGeneratingLinkedPreview.value = true;
 
     const jobId = ++linkedPreviewJobId;
@@ -851,44 +848,6 @@ async function selectHotspot(hotspotId: number): Promise<void> {
 
     hotspotPreviewUrl.value = previewUrl;
     isGeneratingPreview.value = false;
-}
-
-function onModalHotspotSelect(hotspotId: number): void {
-    void selectHotspot(hotspotId);
-}
-
-function onGoHotspotTarget(targetPageNo: number): void {
-    if (targetPageNo <= 0) {
-        return;
-    }
-
-    closeHotspotModal();
-    navigateToPage(targetPageNo);
-}
-
-function onGoLinkedHotspotPage(payload: { linkedPageNo: number; linkedHotspotId: number | null }): void {
-    if (payload.linkedPageNo <= 0) {
-        return;
-    }
-
-    if (payload.linkedPageNo === currentPageNo.value) {
-        if (payload.linkedHotspotId !== null) {
-            void selectHotspot(payload.linkedHotspotId);
-        }
-
-        return;
-    }
-
-    if (props.editionDate !== null && payload.linkedHotspotId !== null) {
-        closeHotspotModal();
-        router.visit(`${viewerUrl(props.editionDate, payload.linkedPageNo)}#hotspot-${payload.linkedHotspotId}`, {
-            preserveScroll: true,
-        });
-        return;
-    }
-
-    closeHotspotModal();
-    navigateToPage(payload.linkedPageNo);
 }
 
 onMounted(() => {
@@ -1093,7 +1052,6 @@ onBeforeUnmount(() => {
 
         <HotspotModal
             :open="isModalOpen"
-            :hotspots="page?.hotspots ?? []"
             :active-hotspot-id="activeHotspotId"
             :current-page-no="page?.page_no ?? null"
             :preview-url="hotspotPreviewUrl"
@@ -1101,11 +1059,7 @@ onBeforeUnmount(() => {
             :linked-preview-url="linkedHotspotPreviewUrl"
             :linked-loading="isGeneratingLinkedPreview"
             :linked-page-no="linkedHotspotPageNo"
-            :linked-hotspot-id="linkedHotspotId"
             @close="closeHotspotModal"
-            @go-target="onGoHotspotTarget"
-            @go-linked="onGoLinkedHotspotPage"
-            @select-hotspot="onModalHotspotSelect"
         />
 
         <div v-if="toastMessage !== ''" class="pointer-events-none fixed right-4 top-4 z-50 w-full max-w-sm">
