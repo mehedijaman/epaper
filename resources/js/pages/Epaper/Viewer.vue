@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import PublicViewerShell from '@/components/epaper/PublicViewerShell.vue';
-import type { Ad, Page, ViewerCategoryItem, ViewerPageListItem } from '@/types';
+import type {
+    Ad,
+    Page,
+    ViewerCategoryItem,
+    ViewerEditionItem,
+    ViewerPageListItem,
+} from '@/types';
 
 defineProps<{
     edition_date: string;
@@ -8,6 +14,8 @@ defineProps<{
     page: Page;
     pages: ViewerPageListItem[];
     categories: ViewerCategoryItem[];
+    editions_for_date: ViewerEditionItem[];
+    selected_edition: ViewerEditionItem | null;
     available_dates: string[];
     prev_page_no: number | null;
     next_page_no: number | null;
@@ -28,6 +36,8 @@ defineProps<{
         :page="page"
         :pages="pages"
         :categories="categories"
+        :editions-for-date="editions_for_date"
+        :selected-edition="selected_edition"
         :available-dates="available_dates"
         :logo-url="logo_url"
         :settings="settings"

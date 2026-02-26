@@ -40,8 +40,10 @@ Route::middleware(['auth'])->prefix('admin')->name('epadmin.')->group(function (
 
     Route::middleware('can:categories.manage')->prefix('categories')->name('categories.')->group(function () {
         Route::get('/', [CategoryController::class, 'index'])->name('index');
+        Route::patch('/reorder', [CategoryController::class, 'reorder'])->name('reorder');
         Route::get('/create', [CategoryController::class, 'create'])->name('create');
         Route::post('/', [CategoryController::class, 'store'])->name('store');
+        Route::patch('/{category}/toggle', [CategoryController::class, 'toggle'])->name('toggle');
         Route::get('/{category}/edit', [CategoryController::class, 'edit'])->name('edit');
         Route::put('/{category}', [CategoryController::class, 'update'])->name('update');
         Route::delete('/{category}', [CategoryController::class, 'destroy'])->name('destroy');
@@ -49,6 +51,9 @@ Route::middleware(['auth'])->prefix('admin')->name('epadmin.')->group(function (
 
     Route::middleware('can:editions.manage')->group(function () {
         Route::get('/editions/manage', [EditionManageController::class, 'index'])->name('editions.manage');
+        Route::post('/editions', [EditionManageController::class, 'store'])->name('editions.store');
+        Route::patch('/editions/{edition}', [EditionManageController::class, 'update'])->name('editions.update');
+        Route::delete('/editions/{edition}', [EditionManageController::class, 'destroy'])->name('editions.destroy');
 
         Route::get('/editions/publish', [EditionPublishController::class, 'index'])->name('editions.publish.index');
         Route::post('/editions/publish', [EditionPublishController::class, 'publish'])->name('editions.publish');

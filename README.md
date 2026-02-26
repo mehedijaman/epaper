@@ -75,6 +75,14 @@ composer run dev
 
 `composer run dev` starts Laravel server, queue worker, logs, and Vite together.
 
+If you only want the PHP app server, use:
+
+```bash
+composer run serve
+```
+
+Do not use plain `php artisan serve` for page uploads unless your CLI `php.ini` already has high enough limits.
+
 ## Default Seeded Admin
 
 Seeder behavior:
@@ -136,6 +144,24 @@ Permissions used:
 - Uploaded images and logo rely on Laravel filesystem.
 - ePaper storage disk comes from `EPAPER_DISK` (defaults to `public` via `config/epaper.php`).
 - Run `php artisan storage:link` so browser-accessible URLs work correctly.
+- Multi-file page upload validation defaults:
+  - `EPAPER_PAGE_UPLOAD_MAX_FILE_KB=15360` (15 MB per image)
+  - `EPAPER_PAGE_UPLOAD_MAX_FILES=200`
+
+## Upload Size Configuration
+
+Large multi-image uploads require aligned limits at PHP, Laravel, and web-server layers.
+
+- PHP (`php.ini`):
+  - `upload_max_filesize` (must be >= per-file upload size)
+  - `post_max_size` (must be >= full multipart request size)
+  - `max_file_uploads` (must be >= number of files uploaded in one request)
+  - for `artisan serve`, these limits come from CLI `php.ini` (often defaults like `2M/8M/20`)
+- Nginx (if used):
+  - `client_max_body_size` (must be >= full multipart request size)
+- Laravel:
+  - Per-file and file-count limits are validated via `EPAPER_PAGE_UPLOAD_MAX_FILE_KB` and `EPAPER_PAGE_UPLOAD_MAX_FILES`.
+  - Oversized request payloads return a friendly error message from `PostTooLargeException` handling in `bootstrap/app.php`.
 
 ## Deployment Checklist
 

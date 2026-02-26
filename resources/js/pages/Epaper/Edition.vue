@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import { Badge } from '@/components/ui/badge';
 import {
     Card,
@@ -18,10 +19,18 @@ const props = defineProps<{
         footer_copyright: string;
     };
 }>();
+
+const editionLabel = computed(() => {
+    if (typeof props.edition.name === 'string' && props.edition.name.trim() !== '') {
+        return props.edition.name.trim();
+    }
+
+    return `Edition ${props.edition.id}`;
+});
 </script>
 
 <template>
-    <Head :title="`Edition ${edition.edition_date}`" />
+    <Head :title="`${editionLabel} - ${edition.edition_date}`" />
 
     <div class="min-h-screen bg-slate-100/70">
         <div class="mx-auto w-full max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:py-8">
@@ -32,9 +41,10 @@ const props = defineProps<{
                             Daily ePaper
                         </p>
                         <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">
-                            Edition {{ edition.edition_date }}
+                            {{ editionLabel }}
                         </h1>
                         <div class="flex flex-wrap items-center gap-2">
+                            <Badge variant="outline">{{ edition.edition_date }}</Badge>
                             <Badge variant="secondary">{{ edition.pages.length }} pages</Badge>
                             <Badge variant="outline">Digital archive</Badge>
                         </div>

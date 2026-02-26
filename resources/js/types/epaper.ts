@@ -67,9 +67,16 @@ export interface ViewerCategoryItem {
     position: number;
 }
 
+export interface ViewerEditionItem {
+    id: number;
+    name: string | null;
+    edition_date: string;
+}
+
 export interface Edition {
     id: number;
     edition_date: string;
+    name?: string | null;
     status: 'draft' | 'published';
     published_at: string | null;
     pages: Page[];

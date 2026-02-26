@@ -161,9 +161,8 @@ test('edition manager can load edition using edition_id query', function () {
         ->get(route('epadmin.editions.manage', ['edition_id' => $selectedEdition->id]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('selected_edition_id', $selectedEdition->id)
-            ->where('edition.id', $selectedEdition->id)
-            ->where('date', '2026-02-21')
+            ->where('selectedEdition.id', $selectedEdition->id)
+            ->where('selectedDate', '2026-02-21')
         );
 });
 
@@ -175,40 +174,162 @@ test('searching a missing edition date does not auto-create in manage or publish
         ->get(route('epadmin.editions.manage', ['date' => '2026-03-01']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('edition', null)
-            ->where('date_notice', 'No edition found for 2026-03-01. Click "Create draft edition" to start.')
+            ->where('selectedEdition', null)
+            ->where('dateNotice', 'No editions found for 2026-03-01. Create a new edition to start.')
         );
 
     $this->actingAs($operator)
         ->get(route('epadmin.editions.publish.index', ['date' => '2026-03-01']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('edition', null)
-            ->where('date_notice', 'No edition found for 2026-03-01. Create it from Manage Pages first.')
+            ->where('editions_for_date', [])
+            ->where('date_notice', 'No editions found for 2026-03-01. Create one from Manage Pages first.')
         );
 
     $this->assertDatabaseCount('editions', 0);
 });
 
-test('manage date create flag creates draft edition explicitly', function () {
+test('manage page can create a draft edition explicitly', function () {
     $operator = User::factory()->create();
     $operator->assignRole('operator');
 
-    $this->actingAs($operator)
-        ->get(route('epadmin.editions.manage', ['date' => '2026-03-02', 'create' => 1]))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->where('edition.edition_date', '2026-03-02')
-            ->where('edition.status', Edition::STATUS_DRAFT)
-            ->where('date_notice', null)
-        );
+    $response = $this->actingAs($operator)
+        ->post(route('epadmin.editions.store'), [
+            'edition_date' => '2026-03-02',
+            'name' => 'Morning',
+        ]);
+
+    $createdEdition = Edition::query()
+        ->forDate('2026-03-02')
+        ->latest('id')
+        ->firstOrFail();
+
+    $response->assertRedirect(route('epadmin.editions.manage', [
+        'date' => '2026-03-02',
+        'edition_id' => $createdEdition->id,
+    ]));
 
     expect(
         Edition::query()
             ->forDate('2026-03-02')
+            ->where('name', 'Morning')
             ->where('status', Edition::STATUS_DRAFT)
             ->exists()
     )->toBeTrue();
+});
+
+test('manage page can update and clear edition name', function () {
+    $operator = User::factory()->create();
+    $operator->assignRole('operator');
+
+    $edition = Edition::query()->create([
+        'edition_date' => CarbonImmutable::parse('2026-03-07')->startOfDay(),
+        'name' => null,
+        'status' => Edition::STATUS_DRAFT,
+        'created_by' => $operator->id,
+    ]);
+
+    $this->actingAs($operator)
+        ->patch(route('epadmin.editions.update', ['edition' => $edition->id]), [
+            'name' => 'City Late Edition',
+        ])
+        ->assertRedirect(route('epadmin.editions.manage', [
+            'date' => '2026-03-07',
+            'edition_id' => $edition->id,
+        ]));
+
+    $this->assertDatabaseHas('editions', [
+        'id' => $edition->id,
+        'name' => 'City Late Edition',
+    ]);
+
+    $this->actingAs($operator)
+        ->patch(route('epadmin.editions.update', ['edition' => $edition->id]), [
+            'name' => '   ',
+        ])
+        ->assertRedirect(route('epadmin.editions.manage', [
+            'date' => '2026-03-07',
+            'edition_id' => $edition->id,
+        ]));
+
+    $this->assertDatabaseHas('editions', [
+        'id' => $edition->id,
+        'name' => null,
+    ]);
+});
+
+test('operator cannot delete an edition', function () {
+    $operator = User::factory()->create();
+    $operator->assignRole('operator');
+
+    $edition = Edition::query()->create([
+        'edition_date' => CarbonImmutable::parse('2026-03-08')->startOfDay(),
+        'status' => Edition::STATUS_DRAFT,
+        'created_by' => $operator->id,
+    ]);
+
+    $this->actingAs($operator)
+        ->delete(route('epadmin.editions.destroy', ['edition' => $edition->id]))
+        ->assertForbidden();
+
+    $this->assertDatabaseHas('editions', ['id' => $edition->id]);
+});
+
+test('admin can delete an edition and is redirected to remaining edition for that date', function () {
+    $admin = User::factory()->create();
+    $admin->assignRole('admin');
+
+    $remainingEdition = Edition::query()->create([
+        'edition_date' => CarbonImmutable::parse('2026-03-09')->startOfDay(),
+        'status' => Edition::STATUS_DRAFT,
+        'created_by' => $admin->id,
+    ]);
+
+    $editionToDelete = Edition::query()->create([
+        'edition_date' => CarbonImmutable::parse('2026-03-09')->startOfDay(),
+        'status' => Edition::STATUS_DRAFT,
+        'created_by' => $admin->id,
+    ]);
+
+    $this->actingAs($admin)
+        ->delete(route('epadmin.editions.destroy', ['edition' => $editionToDelete->id]))
+        ->assertRedirect(route('epadmin.editions.manage', [
+            'date' => '2026-03-09',
+            'edition_id' => $remainingEdition->id,
+        ]));
+
+    $this->assertDatabaseMissing('editions', ['id' => $editionToDelete->id]);
+    $this->assertDatabaseHas('editions', ['id' => $remainingEdition->id]);
+});
+
+test('manage page lists editions for selected date ordered by newest first', function () {
+    $operator = User::factory()->create();
+    $operator->assignRole('operator');
+
+    $older = Edition::query()->create([
+        'edition_date' => CarbonImmutable::parse('2026-03-06')->startOfDay(),
+        'name' => 'Morning',
+        'status' => Edition::STATUS_DRAFT,
+        'created_by' => $operator->id,
+    ]);
+
+    $newer = Edition::query()->create([
+        'edition_date' => CarbonImmutable::parse('2026-03-06')->startOfDay(),
+        'name' => 'Evening',
+        'status' => Edition::STATUS_DRAFT,
+        'created_by' => $operator->id,
+    ]);
+
+    $this->actingAs($operator)
+        ->get(route('epadmin.editions.manage', ['date' => '2026-03-06']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('selectedDate', '2026-03-06')
+            ->where('selectedEdition', null)
+            ->has('editionsForDate', 2)
+            ->where('editionsForDate.0.id', $newer->id)
+            ->where('editionsForDate.1.id', $older->id)
+        );
 });
 
 test('publish page includes readiness blocker when edition has no pages', function () {
@@ -225,9 +346,42 @@ test('publish page includes readiness blocker when edition has no pages', functi
         ->get(route('epadmin.editions.publish.index', ['date' => '2026-03-03']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('edition.id', $edition->id)
-            ->where('publish_readiness.is_ready', false)
-            ->where('publish_readiness.blockers', ['Add at least one page before publishing.'])
+            ->where('selected_edition_id', null)
+            ->has('editions_for_date', 1)
+            ->where('editions_for_date.0.id', $edition->id)
+            ->where('editions_for_date.0.publish_readiness.is_ready', false)
+            ->where('editions_for_date.0.publish_readiness.blockers', ['Add at least one page before publishing.'])
+        );
+});
+
+test('publish page lists all editions for selected date ordered by newest first', function () {
+    $operator = User::factory()->create();
+    $operator->assignRole('operator');
+
+    $older = Edition::query()->create([
+        'edition_date' => CarbonImmutable::parse('2026-03-10')->startOfDay(),
+        'name' => 'Morning',
+        'status' => Edition::STATUS_DRAFT,
+        'created_by' => $operator->id,
+    ]);
+
+    $newer = Edition::query()->create([
+        'edition_date' => CarbonImmutable::parse('2026-03-10')->startOfDay(),
+        'name' => 'Evening',
+        'status' => Edition::STATUS_PUBLISHED,
+        'published_at' => now(),
+        'created_by' => $operator->id,
+    ]);
+
+    $this->actingAs($operator)
+        ->get(route('epadmin.editions.publish.index', ['date' => '2026-03-10']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('date', '2026-03-10')
+            ->where('selected_edition_id', null)
+            ->has('editions_for_date', 2)
+            ->where('editions_for_date.0.id', $newer->id)
+            ->where('editions_for_date.1.id', $older->id)
         );
 });
 
@@ -319,7 +473,10 @@ test('edition can be published when readiness checks pass', function () {
         ->post(route('epadmin.editions.publish'), [
             'edition_id' => $edition->id,
         ])
-        ->assertRedirect(route('epadmin.editions.publish.index', ['date' => '2026-03-05']));
+        ->assertRedirect(route('epadmin.editions.publish.index', [
+            'date' => '2026-03-05',
+            'edition_id' => $edition->id,
+        ]));
 
     $edition->refresh();
 

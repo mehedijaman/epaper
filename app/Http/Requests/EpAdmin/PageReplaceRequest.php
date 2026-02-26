@@ -16,8 +16,10 @@ class PageReplaceRequest extends FormRequest
      */
     public function rules(): array
     {
+        $maxFileSizeKb = max(1, (int) config('epaper.page_upload_max_file_kb', 15360));
+
         return [
-            'file' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:30720'],
+            'file' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', "max:{$maxFileSizeKb}"],
         ];
     }
 }

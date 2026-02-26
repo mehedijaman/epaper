@@ -17,8 +17,6 @@ import {
     ref,
     watch,
 } from 'vue';
-import AdBlock from '@/components/epaper/AdBlock.vue';
-import HotspotModal from '@/components/epaper/HotspotModal.vue';
 import ThumbnailRail from '@/components/epaper/ThumbnailRail.vue';
 import ViewerFrame from '@/components/epaper/ViewerFrame.vue';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -38,6 +36,7 @@ import type {
     LinkedHotspotRef,
     Page,
     ViewerCategoryItem,
+    ViewerEditionItem,
     ViewerPageListItem,
 } from '@/types';
 
@@ -54,6 +53,8 @@ const props = withDefaults(
         page: Page | null;
         pages: ViewerPageListItem[];
         categories?: ViewerCategoryItem[];
+        editionsForDate?: ViewerEditionItem[];
+        selectedEdition?: ViewerEditionItem | null;
         availableDates: string[];
         logoUrl?: string | null;
         settings: FooterSettings;
@@ -61,6 +62,8 @@ const props = withDefaults(
     }>(),
     {
         categories: () => [],
+        editionsForDate: () => [],
+        selectedEdition: null,
         logoUrl: null,
         adsBySlot: undefined,
     },
@@ -86,6 +89,7 @@ function dateInDhaka(reference: Date = new Date()): string {
 const selectedDate = ref(dateInDhaka());
 const selectedPage = ref(props.page ? String(props.page.page_no) : '');
 const selectedCategory = ref('');
+const selectedEditionId = ref('');
 const thumbnailMode = ref<'strip' | 'grid'>('strip');
 const dateInputRef = ref<HTMLInputElement | ComponentPublicInstance | null>(
     null,
@@ -96,8 +100,8 @@ const thumbnailRailHeight = ref<number | null>(null);
 const toastMessage = ref('');
 let toastTimeoutId: number | null = null;
 let viewerSectionObserver: ResizeObserver | null = null;
+let hotspotPopupWindow: Window | null = null;
 
-const isModalOpen = ref(false);
 const activeHotspotId = ref<number | null>(null);
 const hotspotPreviewUrl = ref<string | null>(null);
 const linkedHotspotPreviewUrl = ref<string | null>(null);
@@ -225,32 +229,36 @@ const derivedCategories = computed<ViewerCategoryItem[]>(() => {
     return Array.from(map.values()).sort((a, b) => a.position - b.position);
 });
 
-const mappedCategories = computed<ViewerCategoryItem[]>(() => {
+const categoryOptions = computed<ViewerCategoryItem[]>(() => {
     const source =
         props.categories.length > 0
             ? props.categories
             : derivedCategories.value;
 
-    return source
-        .filter((item) => categoryPageMap.value.has(item.id))
-        .sort((a, b) => a.position - b.position);
+    return [...source].sort((a, b) => a.position - b.position);
 });
 
-const hasMappedCategories = computed(() => mappedCategories.value.length > 0);
-
-const adSlots = computed(() => {
-    if (props.adsBySlot === undefined) {
-        return [];
+const hasCategories = computed(() => categoryOptions.value.length > 0);
+const editionOptions = computed<ViewerEditionItem[]>(() => {
+    if (props.editionsForDate.length > 0) {
+        return props.editionsForDate;
     }
 
-    return Array.from({ length: 8 }, (_, index) => {
-        const slotNo = index + 1;
+    if (props.selectedEdition !== null) {
+        return [props.selectedEdition];
+    }
 
-        return {
-            slotNo,
-            ads: props.adsBySlot?.[String(slotNo)] ?? [],
-        };
-    });
+    if (props.page !== null && props.editionDate !== null) {
+        return [
+            {
+                id: props.page.edition_id,
+                name: null,
+                edition_date: props.editionDate,
+            },
+        ];
+    }
+
+    return [];
 });
 
 watch(
@@ -276,6 +284,20 @@ watch(
     { immediate: true },
 );
 
+watch(
+    () => [props.selectedEdition?.id, props.page?.edition_id] as const,
+    ([selectedId, pageEditionId]) => {
+        if (selectedId !== undefined && selectedId !== null) {
+            selectedEditionId.value = String(selectedId);
+            return;
+        }
+
+        selectedEditionId.value =
+            pageEditionId !== undefined ? String(pageEditionId) : '';
+    },
+    { immediate: true },
+);
+
 watch(currentPageHotspots, (hotspots) => {
     if (activeHotspotId.value === null) {
         return;
@@ -286,7 +308,7 @@ watch(currentPageHotspots, (hotspots) => {
     );
 
     if (!activeExists) {
-        closeHotspotModal();
+        closeHotspotPopup();
     }
 });
 
@@ -312,8 +334,21 @@ watch(
     },
 );
 
-function viewerUrl(date: string, pageNo: number): string {
-    return `/epaper/${date}/page/${pageNo}`;
+function editionDisplayLabel(edition: ViewerEditionItem): string {
+    return edition.name?.trim() || edition.edition_date;
+}
+
+function viewerUrl(date: string, pageNo: number, editionId?: number | null): string {
+    const normalizedEditionId =
+        editionId !== null && editionId !== undefined && editionId > 0
+            ? editionId
+            : null;
+
+    if (normalizedEditionId === null) {
+        return `/epaper/${date}/page/${pageNo}`;
+    }
+
+    return `/epaper/${date}/page/${pageNo}?edition=${normalizedEditionId}`;
 }
 
 function hotspotIdFromHash(hash: string): number | null {
@@ -383,7 +418,9 @@ function navigateToPage(pageNo: number): void {
         return;
     }
 
-    router.visit(viewerUrl(props.editionDate, target.page_no), {
+    const editionId = Number.parseInt(selectedEditionId.value, 10);
+
+    router.visit(viewerUrl(props.editionDate, target.page_no, editionId), {
         preserveScroll: true,
     });
 }
@@ -468,10 +505,34 @@ function onCategorySelect(rawValue: AcceptableValue): void {
     const pageNo = categoryPageMap.value.get(categoryId);
 
     if (pageNo === undefined) {
+        showToastError('No pages mapped for this category in this edition.');
         return;
     }
 
     navigateToPage(pageNo);
+}
+
+function onEditionSelect(rawValue: AcceptableValue): void {
+    if (rawValue === null) {
+        return;
+    }
+
+    const editionId = Number.parseInt(String(rawValue), 10);
+
+    if (!Number.isFinite(editionId) || editionId <= 0) {
+        return;
+    }
+
+    selectedEditionId.value = String(editionId);
+
+    if (selectedDate.value === '' || !isIsoDate(selectedDate.value)) {
+        showToastError('Please select a valid date.');
+        return;
+    }
+
+    router.visit(viewerUrl(selectedDate.value, 1, editionId), {
+        preserveScroll: true,
+    });
 }
 
 function onDateChange(event: Event): void {
@@ -573,15 +634,438 @@ function resetLinkedHotspotPreview(): void {
     linkedPreviewJobId += 1;
 }
 
-function closeHotspotModal(): void {
-    isModalOpen.value = false;
+function hotspotShareUrl(hotspotId: number | null): string {
+    if (typeof window === 'undefined') {
+        return '';
+    }
+
+    const shareUrl = new URL(window.location.href);
+    shareUrl.hash = hotspotId !== null ? `hotspot-${hotspotId}` : '';
+
+    return shareUrl.toString();
+}
+
+function hotspotShareText(): string {
+    const pageNo = props.page?.page_no ?? null;
+
+    if (pageNo === null) {
+        return 'Check this ePaper hotspot';
+    }
+
+    return `Check this ePaper hotspot on page ${pageNo}`;
+}
+
+function escapeHtml(value: string): string {
+    return value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function ensureHotspotPopupWindow(): Window | null {
+    if (typeof window === 'undefined') {
+        return null;
+    }
+
+    if (hotspotPopupWindow !== null && !hotspotPopupWindow.closed) {
+        hotspotPopupWindow.focus();
+        return hotspotPopupWindow;
+    }
+
+    const popup = window.open(
+        '',
+        'epaper-hotspot-preview',
+        'popup=yes,width=980,height=760,resizable=yes,scrollbars=yes',
+    );
+
+    if (popup === null) {
+        showToastError('Popup blocked. Please allow popups for hotspot preview.');
+        return null;
+    }
+
+    hotspotPopupWindow = popup;
+    return popup;
+}
+
+function renderHotspotPopupWindow(): void {
+    if (activeHotspotId.value === null) {
+        return;
+    }
+
+    const popup = ensureHotspotPopupWindow();
+
+    if (popup === null) {
+        return;
+    }
+
+    const shareUrl = hotspotShareUrl(activeHotspotId.value);
+    const shareText = hotspotShareText();
+    const pageNo = props.page?.page_no ?? null;
+    const titleText = pageNo !== null
+        ? `Hotspot Preview • Page ${pageNo}`
+        : 'Hotspot Preview';
+    const displayDate = props.editionDate ?? selectedDate.value;
+    const logoMarkup = props.logoUrl
+        ? `<img src="${escapeHtml(props.logoUrl)}" alt="ePaper logo" class="brand-logo" />`
+        : '<div class="brand-fallback"><span class="brand-red">ন্য</span><span class="brand-green">কাগজ</span><span class="brand-domain">nykagoj.com</span></div>';
+
+    const previewMarkup = hotspotPreviewUrl.value !== null && hotspotPreviewUrl.value !== ''
+        ? `<img src="${escapeHtml(hotspotPreviewUrl.value)}" alt="Hotspot preview" class="preview-image" />`
+        : '<div class="empty-state">Preview unavailable.</div>';
+    const linkedPreviewMarkup = linkedHotspotPreviewUrl.value !== null && linkedHotspotPreviewUrl.value !== ''
+        ? `<img src="${escapeHtml(linkedHotspotPreviewUrl.value)}" alt="Linked hotspot preview" class="preview-image" />`
+        : '<div class="empty-state">No linked hotspot preview.</div>';
+
+    const html = `<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(titleText)}</title>
+    <style>
+        :root { color-scheme: light; }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: #f1f1f1;
+            color: #2d3748;
+            font-family: "Noto Sans Bengali", "SolaimanLipi", "Hind Siliguri", Arial, sans-serif;
+        }
+        .page {
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 10px 12px 16px;
+        }
+        .masthead {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 6px 0 10px;
+            border-bottom: 1px solid #d7d7d7;
+        }
+        .brand-logo {
+            display: block;
+            height: 88px;
+            width: auto;
+            max-width: 100%;
+            object-fit: contain;
+        }
+        .brand-fallback {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .brand-red {
+            font-size: 54px;
+            font-weight: 800;
+            line-height: 1;
+            color: #e31b23;
+        }
+        .brand-green {
+            font-size: 54px;
+            font-weight: 800;
+            line-height: 1;
+            color: #0f9d58;
+        }
+        .brand-domain {
+            font-size: 30px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            color: #111827;
+        }
+        .close-btn {
+            border: 1px solid #cfcfcf;
+            background: #ffffff;
+            color: #4a5568;
+            border-radius: 2px;
+            font-size: 13px;
+            padding: 6px 10px;
+            cursor: pointer;
+        }
+        .close-btn:hover {
+            background: #f7f7f7;
+        }
+        .control-row {
+            margin-top: 10px;
+            background: #efefef;
+            border: 1px solid #d3d3d3;
+            padding: 8px 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .left-tools {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            min-width: 300px;
+        }
+        .tool-btn {
+            border: 1px solid #c6c6c6;
+            background: #f8f8f8;
+            color: #2d3748;
+            width: 40px;
+            height: 34px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .tool-btn:hover {
+            background: #ffffff;
+        }
+        .date-meta {
+            font-size: 29px;
+            color: #5a6c80;
+            white-space: nowrap;
+        }
+        .share-strip {
+            display: inline-flex;
+            align-items: center;
+        }
+        .social {
+            border: 0;
+            width: 40px;
+            height: 40px;
+            color: #ffffff;
+            font-size: 24px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .social.fb { background: #3b5998; }
+        .social.tw { background: #1da1f2; }
+        .social.gp { background: #db4437; }
+        .social.in { background: #0077b5; }
+        .social.pr { background: #f57c00; }
+        .social.em { background: #d81b60; }
+        .tabs-row {
+            margin-top: 8px;
+            border-bottom: 1px solid #d3d3d3;
+        }
+        .tab {
+            display: inline-block;
+            border: 1px solid #d3d3d3;
+            border-bottom: 0;
+            padding: 8px 16px;
+            margin-right: 6px;
+            background: #ffffff;
+            font-size: 24px;
+            color: #2b6cb0;
+        }
+        .tab.passive {
+            background: transparent;
+            border-color: transparent;
+            color: #2b6cb0;
+        }
+        .content {
+            background: #ffffff;
+            padding: 16px 8px;
+        }
+        .image-stack {
+            display: grid;
+            gap: 18px;
+        }
+        .preview-frame {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .preview-image {
+            display: block;
+            width: auto;
+            height: auto;
+            max-width: 100%;
+            max-height: none;
+            transform-origin: center top;
+            transition: transform 120ms ease-out;
+        }
+        .empty-state {
+            font-size: 13px;
+            color: #94a3b8;
+            padding: 24px 0;
+        }
+        @media print {
+            .masthead, .control-row, .tabs-row { display: none !important; }
+            .page { padding: 0; max-width: 100%; }
+            .content { padding: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="masthead">
+            <div>${logoMarkup}</div>
+            <button type="button" id="close-popup" class="close-btn">Close</button>
+        </div>
+
+        <div class="control-row">
+            <div class="left-tools">
+                <button type="button" id="go-home" class="tool-btn" title="Home">⌂</button>
+                <span class="date-meta">Date ${escapeHtml(displayDate ?? '')}${pageNo !== null ? ` · Page ${pageNo}` : ''}</span>
+                <button type="button" id="zoom-out" class="tool-btn" title="Zoom out">−</button>
+                <button type="button" id="zoom-in" class="tool-btn" title="Zoom in">+</button>
+            </div>
+            <div class="share-strip">
+                <button type="button" id="share-facebook" class="social fb" title="Facebook">f</button>
+                <button type="button" id="share-x" class="social tw" title="X">t</button>
+                <button type="button" id="share-whatsapp" class="social gp" title="WhatsApp">w</button>
+                <button type="button" id="share-telegram" class="social in" title="Telegram">in</button>
+                <button type="button" id="print-preview" class="social pr" title="Print">⎙</button>
+                <button type="button" id="share-email" class="social em" title="Email">✉</button>
+            </div>
+        </div>
+
+        <div class="tabs-row">
+            <span class="tab">Image</span>
+            <span class="tab passive">Text</span>
+        </div>
+
+        <div class="content">
+            <div class="image-stack">
+                <div class="preview-frame">${previewMarkup}</div>
+                <div class="preview-frame">${linkedPreviewMarkup}</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            var shareUrl = ${JSON.stringify(shareUrl)};
+            var shareText = ${JSON.stringify(shareText)};
+            var zoomLevel = 1;
+
+            function byId(id) {
+                return document.getElementById(id);
+            }
+
+            function on(id, handler) {
+                var element = byId(id);
+                if (element) {
+                    element.addEventListener('click', handler);
+                }
+            }
+
+            function openShare(url) {
+                window.open(url, '_blank', 'noopener,noreferrer');
+            }
+
+            function copyLink() {
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(shareUrl).catch(function () {});
+                    return;
+                }
+
+                var textArea = document.createElement('textarea');
+                textArea.value = shareUrl;
+                textArea.style.position = 'fixed';
+                textArea.style.opacity = '0';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+            }
+
+            function applyZoom() {
+                var images = document.querySelectorAll('.preview-image');
+                for (var i = 0; i < images.length; i += 1) {
+                    images[i].style.transform = 'scale(' + zoomLevel + ')';
+                }
+            }
+
+            on('close-popup', function () {
+                window.close();
+            });
+
+            on('go-home', function () {
+                window.location.href = '/';
+            });
+
+            on('zoom-in', function () {
+                zoomLevel = Math.min(3, zoomLevel + 0.1);
+                applyZoom();
+            });
+
+            on('zoom-out', function () {
+                zoomLevel = Math.max(0.6, zoomLevel - 0.1);
+                applyZoom();
+            });
+
+            on('share-whatsapp', function () {
+                copyLink();
+                openShare('https://wa.me/?text=' + encodeURIComponent(shareText + ' ' + shareUrl));
+            });
+
+            on('share-facebook', function () {
+                copyLink();
+                openShare('https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(shareUrl));
+            });
+
+            on('share-x', function () {
+                copyLink();
+                openShare(
+                    'https://twitter.com/intent/tweet?url=' +
+                    encodeURIComponent(shareUrl) +
+                    '&text=' +
+                    encodeURIComponent(shareText)
+                );
+            });
+
+            on('share-telegram', function () {
+                copyLink();
+                openShare(
+                    'https://t.me/share/url?url=' +
+                    encodeURIComponent(shareUrl) +
+                    '&text=' +
+                    encodeURIComponent(shareText)
+                );
+            });
+
+            on('print-preview', function () {
+                window.print();
+            });
+
+            on('share-email', function () {
+                copyLink();
+                window.location.href =
+                    'mailto:?subject=' +
+                    encodeURIComponent(shareText) +
+                    '&body=' +
+                    encodeURIComponent(shareUrl);
+            });
+        })();
+    <\/script>
+</body>
+</html>`;
+
+    popup.document.open();
+    popup.document.write(html);
+    popup.document.close();
+    popup.focus();
+}
+
+function closeHotspotPopup(clearHash: boolean = true): void {
     activeHotspotId.value = null;
     hotspotPreviewImage.value = null;
     hotspotPreviewUrl.value = null;
     isGeneratingPreview.value = false;
     previewJobId += 1;
     resetLinkedHotspotPreview();
-    updateLocationHash(null);
+
+    if (hotspotPopupWindow !== null && !hotspotPopupWindow.closed) {
+        hotspotPopupWindow.close();
+    }
+
+    hotspotPopupWindow = null;
+
+    if (clearHash) {
+        updateLocationHash(null);
+    }
 }
 
 function waitForImageReady(image: HTMLImageElement): Promise<void> {
@@ -821,6 +1305,7 @@ async function updateLinkedHotspotPreview(
 
     linkedHotspotPreviewUrl.value = previewUrl;
     isGeneratingLinkedPreview.value = false;
+    renderHotspotPopupWindow();
 }
 
 async function openHotspotFromHashIfNeeded(): Promise<void> {
@@ -835,7 +1320,6 @@ async function openHotspotFromHashIfNeeded(): Promise<void> {
     );
 
     if (hotspotOnCurrentPage) {
-        isModalOpen.value = true;
         await selectHotspot(hotspotId);
         return;
     }
@@ -854,7 +1338,11 @@ async function openHotspotFromHashIfNeeded(): Promise<void> {
     }
 
     router.visit(
-        `${viewerUrl(props.editionDate, hotspotLocation.pageNo)}#hotspot-${hotspotId}`,
+        `${viewerUrl(
+            props.editionDate,
+            hotspotLocation.pageNo,
+            Number.parseInt(selectedEditionId.value, 10),
+        )}#hotspot-${hotspotId}`,
         {
             preserveScroll: true,
         },
@@ -865,8 +1353,8 @@ function onHashChange(): void {
     const hotspotId = readHotspotIdFromLocationHash();
 
     if (hotspotId === null) {
-        if (isModalOpen.value) {
-            closeHotspotModal();
+        if (activeHotspotId.value !== null) {
+            closeHotspotPopup(false);
         }
 
         return;
@@ -879,8 +1367,8 @@ async function onHotspotClick(payload: {
     hotspot: Hotspot;
     image: HTMLImageElement | null;
 }): Promise<void> {
+    ensureHotspotPopupWindow();
     hotspotPreviewImage.value = payload.image;
-    isModalOpen.value = true;
 
     await selectHotspot(payload.hotspot.id);
 }
@@ -943,6 +1431,7 @@ async function selectHotspot(hotspotId: number): Promise<void> {
 
     hotspotPreviewUrl.value = previewUrl;
     isGeneratingPreview.value = false;
+    renderHotspotPopupWindow();
 }
 
 onMounted(() => {
@@ -966,6 +1455,7 @@ onBeforeUnmount(() => {
 
     viewerSectionObserver?.disconnect();
     viewerSectionObserver = null;
+    closeHotspotPopup(false);
 });
 </script>
 
@@ -995,7 +1485,7 @@ onBeforeUnmount(() => {
 
         <main class="mx-auto w-full max-w-7xl flex-1 px-2 py-3 sm:px-4">
             <div
-                class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+                class="rounded-xl border border-slate-200 bg-white shadow-sm"
             >
                 <div
                     class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 px-3 py-2.5 backdrop-blur-sm"
@@ -1011,7 +1501,7 @@ onBeforeUnmount(() => {
                             >
                                 <Select
                                     :model-value="selectedCategory"
-                                    :disabled="!hasMappedCategories"
+                                    :disabled="!hasCategories"
                                     @update:model-value="onCategorySelect"
                                 >
                                     <SelectTrigger>
@@ -1019,11 +1509,34 @@ onBeforeUnmount(() => {
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem
-                                            v-for="category in mappedCategories"
+                                            v-for="category in categoryOptions"
                                             :key="category.id"
                                             :value="String(category.id)"
                                         >
                                             {{ category.name }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div
+                                class="min-w-[160px] flex-1 basis-[180px] sm:w-[220px] sm:flex-none"
+                            >
+                                <Select
+                                    :model-value="selectedEditionId"
+                                    :disabled="editionOptions.length === 0"
+                                    @update:model-value="onEditionSelect"
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Edition Select" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem
+                                            v-for="edition in editionOptions"
+                                            :key="edition.id"
+                                            :value="String(edition.id)"
+                                        >
+                                            {{ editionDisplayLabel(edition) }}
                                         </SelectItem>
                                     </SelectContent>
                                 </Select>
@@ -1097,10 +1610,10 @@ onBeforeUnmount(() => {
                     </div>
 
                     <p
-                        v-if="!hasMappedCategories"
+                        v-if="!hasCategories"
                         class="mt-1.5 text-xs text-slate-500"
                     >
-                        No categories mapped in this edition.
+                        No categories available.
                     </p>
                 </div>
 
@@ -1196,18 +1709,6 @@ onBeforeUnmount(() => {
                 </div>
             </div>
         </footer>
-
-        <HotspotModal
-            :open="isModalOpen"
-            :active-hotspot-id="activeHotspotId"
-            :current-page-no="page?.page_no ?? null"
-            :preview-url="hotspotPreviewUrl"
-            :loading="isGeneratingPreview"
-            :linked-preview-url="linkedHotspotPreviewUrl"
-            :linked-loading="isGeneratingLinkedPreview"
-            :linked-page-no="linkedHotspotPageNo"
-            @close="closeHotspotModal"
-        />
 
         <div
             v-if="toastMessage !== ''"

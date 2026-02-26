@@ -79,22 +79,22 @@ onBeforeUnmount(() => {
 
 <template>
     <div
-        class="flex h-[calc(100vh-120px)] min-h-[500px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-md"
+        class="flex flex-col rounded-xl border border-slate-200 bg-white shadow-md"
     >
         <div
             ref="viewportRef"
-            class="flex flex-1 items-center justify-center overflow-auto bg-slate-50"
+            class="flex items-start justify-center overflow-visible bg-slate-50 p-2 sm:p-3"
         >
             <div
                 ref="stageRef"
-                class="relative mx-auto inline-block touch-none select-none"
+                class="relative mx-auto inline-block w-full touch-none select-none"
             >
                 <img
                     ref="imageRef"
                     :src="imageUrlForPage(page)"
                     :alt="`Page ${page.page_no}`"
                     draggable="false"
-                    class="block max-h-[calc(100vh-170px)] w-auto object-contain"
+                    class="block h-auto w-full object-contain"
                 />
 
                 <button

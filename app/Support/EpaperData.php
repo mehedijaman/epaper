@@ -104,6 +104,7 @@ class EpaperData
         return [
             'id' => $edition->id,
             'edition_date' => $edition->edition_date->toDateString(),
+            'name' => $edition->name,
             'status' => $edition->status,
             'published_at' => $edition->published_at?->toISOString(),
             'pages' => $edition->pages->map(fn (Page $page): array => self::mapPage($page))->values()->all(),

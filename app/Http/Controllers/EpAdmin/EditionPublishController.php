@@ -19,11 +19,16 @@ class EditionPublishController extends Controller
     {
         $rawDate = $request->query('date');
         $date = is_string($rawDate) ? trim($rawDate) : '';
-
-        $editionData = null;
-        $publishReadiness = null;
+        $selectedEditionId = $this->parseEditionId($request->query('edition_id'));
         $dateError = null;
         $dateNotice = null;
+        $selectedEdition = null;
+        $editionsForDate = collect();
+        $resolvedSelectedEditionId = null;
+
+        if ($selectedEditionId !== null) {
+            $selectedEdition = Edition::query()->find($selectedEditionId);
+        }
 
         if ($date !== '') {
             $normalizedDate = $this->normalizeDate($date);
@@ -31,38 +36,61 @@ class EditionPublishController extends Controller
             if ($normalizedDate === null) {
                 $dateError = 'Invalid date format. Use YYYY-MM-DD.';
             } else {
-                $edition = Edition::query()
-                    ->forDate($normalizedDate->toDateString())
-                    ->first();
-
-                if (! $edition instanceof Edition) {
-                    $dateNotice = sprintf(
-                        'No edition found for %s. Create it from Manage Pages first.',
-                        $normalizedDate->toDateString(),
-                    );
-                } else {
-                    $edition->loadCount('pages');
-
-                    $editionData = [
-                        'id' => $edition->id,
-                        'edition_date' => $edition->edition_date->toDateString(),
-                        'status' => $edition->status,
-                        'published_at' => $edition->published_at?->toISOString(),
-                        'pages_count' => (int) $edition->pages_count,
-                    ];
-                    $publishReadiness = $this->evaluatePublishReadiness($edition);
-                }
-
                 $date = $normalizedDate->toDateString();
             }
+        }
+
+        if ($date === '' && $selectedEdition instanceof Edition) {
+            $date = $selectedEdition->edition_date->toDateString();
+        }
+
+        if ($date !== '') {
+            /** @var Collection<int, Edition> $editionsForDate */
+            $editionsForDate = Edition::query()
+                ->forDate($date)
+                ->withCount('pages')
+                ->with(['pages' => fn ($query) => $query->select(['id', 'edition_id', 'page_no'])])
+                ->orderByDesc('id')
+                ->get();
+
+            if ($editionsForDate->isEmpty() && $dateError === null) {
+                $dateNotice = sprintf('No editions found for %s. Create one from Manage Pages first.', $date);
+            }
+
+            if ($selectedEditionId !== null) {
+                $matchedEdition = $editionsForDate->firstWhere('id', $selectedEditionId);
+
+                if ($matchedEdition instanceof Edition) {
+                    $resolvedSelectedEditionId = $matchedEdition->id;
+                } elseif ($dateError === null) {
+                    $dateNotice = sprintf('Edition #%d was not found for %s.', $selectedEditionId, $date);
+                }
+            }
+        } elseif ($selectedEditionId !== null && $dateError === null) {
+            $dateNotice = sprintf('Edition #%d was not found.', $selectedEditionId);
         }
 
         return Inertia::render('EpAdmin/Editions/Publish', [
             'date' => $date,
             'date_error' => $dateError,
             'date_notice' => $dateNotice,
-            'edition' => $editionData,
-            'publish_readiness' => $publishReadiness,
+            'selected_edition_id' => $resolvedSelectedEditionId,
+            'editions_for_date' => $editionsForDate
+                ->map(function (Edition $edition): array {
+                    $publishReadiness = $this->evaluatePublishReadiness($edition);
+
+                    return [
+                        'id' => $edition->id,
+                        'edition_date' => $edition->edition_date->toDateString(),
+                        'name' => $edition->name,
+                        'status' => $edition->status,
+                        'published_at' => $edition->published_at?->toISOString(),
+                        'pages_count' => (int) $edition->pages_count,
+                        'publish_readiness' => $publishReadiness,
+                    ];
+                })
+                ->values()
+                ->all(),
         ]);
     }
 
@@ -86,7 +114,10 @@ class EditionPublishController extends Controller
         ]);
 
         return redirect()
-            ->route('epadmin.editions.publish.index', ['date' => $edition->edition_date->toDateString()])
+            ->route('epadmin.editions.publish.index', [
+                'date' => $edition->edition_date->toDateString(),
+                'edition_id' => $edition->id,
+            ])
             ->with('success', 'Edition published successfully.');
     }
 
@@ -102,7 +133,10 @@ class EditionPublishController extends Controller
         ]);
 
         return redirect()
-            ->route('epadmin.editions.publish.index', ['date' => $edition->edition_date->toDateString()])
+            ->route('epadmin.editions.publish.index', [
+                'date' => $edition->edition_date->toDateString(),
+                'edition_id' => $edition->id,
+            ])
             ->with('success', 'Edition moved back to draft.');
     }
 
@@ -121,17 +155,46 @@ class EditionPublishController extends Controller
         }
     }
 
+    private function parseEditionId(mixed $value): ?int
+    {
+        if (is_int($value)) {
+            return $value > 0 ? $value : null;
+        }
+
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $trimmed = trim($value);
+
+        if ($trimmed === '' || ! ctype_digit($trimmed)) {
+            return null;
+        }
+
+        $parsed = (int) $trimmed;
+
+        return $parsed > 0 ? $parsed : null;
+    }
+
     /**
      * @return array{is_ready: bool, blockers: array<int, string>}
      */
     private function evaluatePublishReadiness(Edition $edition): array
     {
-        /** @var Collection<int, int> $pageNumbers */
-        $pageNumbers = $edition->pages()
-            ->orderBy('page_no')
-            ->pluck('page_no')
-            ->map(fn (mixed $value): int => (int) $value)
-            ->values();
+        if ($edition->relationLoaded('pages')) {
+            /** @var Collection<int, int> $pageNumbers */
+            $pageNumbers = $edition->getRelation('pages')
+                ->pluck('page_no')
+                ->map(fn (mixed $value): int => (int) $value)
+                ->values();
+        } else {
+            /** @var Collection<int, int> $pageNumbers */
+            $pageNumbers = $edition->pages()
+                ->orderBy('page_no')
+                ->pluck('page_no')
+                ->map(fn (mixed $value): int => (int) $value)
+                ->values();
+        }
 
         $blockers = [];
 

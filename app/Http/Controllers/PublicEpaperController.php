@@ -3,12 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Ad;
+use App\Models\Category;
 use App\Models\Edition;
 use App\Models\SiteSetting;
 use App\Support\DiskUrl;
 use App\Support\EpaperData;
 use Carbon\CarbonImmutable;
-use DateTimeInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -18,41 +19,34 @@ class PublicEpaperController extends Controller
     public function index(Request $request): Response
     {
         $requestedDate = $this->normalizeDate($request->query('date'));
+        $requestedEditionId = $this->editionIdFromQuery($request);
         $requestedPageNo = max(1, (int) $request->integer('page', 1));
-
-        $editionQuery = Edition::query()
-            ->published()
-            ->withCount('pages')
-            ->with([
-                'pages' => fn ($query) => $query
-                    ->with([
-                        'category',
-                        'hotspots' => fn ($hotspotQuery) => $hotspotQuery
-                            ->with(['targetHotspot.page', 'linkedHotspot.page'])
-                            ->orderBy('id'),
-                    ])
-                    ->orderBy('page_no'),
-            ]);
 
         $featuredEdition = null;
 
         if ($requestedDate !== null) {
-            $featuredEdition = (clone $editionQuery)
-                ->forDate($requestedDate->toDateString())
+            $featuredEdition = $this->findPublishedEditionForDate(
+                $requestedDate->toDateString(),
+                $requestedEditionId,
+            );
+        }
+
+        if ($featuredEdition === null && $requestedDate === null && $requestedEditionId !== null) {
+            $featuredEdition = $this->baseEditionWithPagesQuery()
+                ->whereKey($requestedEditionId)
                 ->first();
         }
 
         if ($featuredEdition === null) {
             $todayDhaka = CarbonImmutable::now('Asia/Dhaka')->toDateString();
 
-            $featuredEdition = (clone $editionQuery)
-                ->forDate($todayDhaka)
-                ->first();
+            $featuredEdition = $this->findPublishedEditionForDate($todayDhaka);
         }
 
         if ($featuredEdition === null) {
-            $featuredEdition = (clone $editionQuery)
+            $featuredEdition = $this->baseEditionWithPagesQuery()
                 ->orderByDesc('edition_date')
+                ->orderByDesc('id')
                 ->first();
         }
 
@@ -68,14 +62,12 @@ class PublicEpaperController extends Controller
             }
         }
 
-        $availableDates = Edition::query()
-            ->published()
-            ->orderByDesc('edition_date')
-            ->pluck('edition_date')
-            ->map(fn (mixed $date): ?string => $this->toDateString($date))
-            ->filter(fn (?string $date): bool => $date !== null)
-            ->values()
-            ->all();
+        $selectedDate = $featuredEdition?->edition_date->toDateString()
+            ?? $requestedDate?->toDateString();
+
+        $editionsForDate = $selectedDate !== null
+            ? $this->editionsForDatePayload($selectedDate)
+            : [];
 
         $rawSettings = EpaperData::mapSiteSettings(
             SiteSetting::query()->whereIn('key', SiteSetting::defaultKeys())->get(),
@@ -88,10 +80,13 @@ class PublicEpaperController extends Controller
 
         return Inertia::render('Epaper/Index', [
             'edition' => $featuredEdition ? EpaperData::mapEdition($featuredEdition) : null,
+            'selected_edition' => $featuredEdition ? $this->mapEditionOption($featuredEdition) : null,
+            'editions_for_date' => $editionsForDate,
             'current_page' => $currentPage ? EpaperData::mapPage($currentPage) : null,
             'selected_page_no' => $currentPage?->page_no,
-            'selected_date' => $featuredEdition?->edition_date->toDateString(),
-            'available_dates' => $availableDates,
+            'selected_date' => $selectedDate,
+            'available_dates' => $this->availableDatesPayload(),
+            'categories' => $this->categoriesPayload(),
             'logo_url' => $logoUrl,
             'settings' => [
                 SiteSetting::FOOTER_EDITOR_INFO => $rawSettings[SiteSetting::FOOTER_EDITOR_INFO] ?? '',
@@ -110,6 +105,7 @@ class PublicEpaperController extends Controller
         $edition = Edition::query()
             ->published()
             ->whereDate('edition_date', $editionDate)
+            ->orderByDesc('id')
             ->with([
                 'pages' => fn ($query) => $query
                     ->with([
@@ -129,26 +125,20 @@ class PublicEpaperController extends Controller
         ]);
     }
 
-    public function viewer(string $date, int $pageNo): Response
+    public function viewer(Request $request, string $date, int $pageNo): Response
     {
         $editionDate = $this->normalizeDate($date);
 
         abort_if($editionDate === null, 404);
 
-        $edition = Edition::query()
-            ->published()
-            ->whereDate('edition_date', $editionDate)
-            ->with([
-                'pages' => fn ($query) => $query
-                    ->with([
-                        'category',
-                        'hotspots' => fn ($hotspotQuery) => $hotspotQuery
-                            ->with(['targetHotspot.page', 'linkedHotspot.page'])
-                            ->orderBy('id'),
-                    ])
-                    ->orderBy('page_no'),
-            ])
-            ->firstOrFail();
+        $requestedEditionId = $this->editionIdFromQuery($request);
+
+        $edition = $this->findPublishedEditionForDate(
+            $editionDate->toDateString(),
+            $requestedEditionId,
+        );
+
+        abort_if($edition === null, 404);
 
         $pages = $edition->pages->values();
         $page = $pages->firstWhere('page_no', $pageNo);
@@ -174,28 +164,6 @@ class PublicEpaperController extends Controller
             ->values()
             ->all();
 
-        $categories = $pages
-            ->map(fn ($item) => $item->category)
-            ->filter()
-            ->unique('id')
-            ->sortBy('position')
-            ->values()
-            ->map(fn ($category): array => [
-                'id' => $category->id,
-                'name' => $category->name,
-                'position' => $category->position,
-            ])
-            ->all();
-
-        $availableDates = Edition::query()
-            ->published()
-            ->orderByDesc('edition_date')
-            ->pluck('edition_date')
-            ->map(fn (mixed $value): ?string => $this->toDateString($value))
-            ->filter(fn (?string $value): bool => $value !== null)
-            ->values()
-            ->all();
-
         $currentIndex = $pages->search(fn ($item): bool => $item->id === $page->id);
 
         $prevPageNo = $currentIndex !== false && $currentIndex > 0
@@ -216,11 +184,13 @@ class PublicEpaperController extends Controller
 
         return Inertia::render('Epaper/Viewer', [
             'edition_date' => $edition->edition_date->toDateString(),
+            'selected_edition' => $this->mapEditionOption($edition),
+            'editions_for_date' => $this->editionsForDatePayload($edition->edition_date->toDateString()),
             'current_page_no' => $page->page_no,
             'page' => EpaperData::mapPage($page),
             'pages' => $mappedPages,
-            'categories' => $categories,
-            'available_dates' => $availableDates,
+            'categories' => $this->categoriesPayload(),
+            'available_dates' => $this->availableDatesPayload(),
             'prev_page_no' => $prevPageNo,
             'next_page_no' => $nextPageNo,
             'logo_url' => $logoUrl,
@@ -267,6 +237,113 @@ class PublicEpaperController extends Controller
         return $grouped;
     }
 
+    /**
+     * @return array<int, array{id:int,name:string|null,edition_date:string}>
+     */
+    private function editionsForDatePayload(string $date): array
+    {
+        return Edition::query()
+            ->published()
+            ->forDate($date)
+            ->orderByDesc('id')
+            ->get(['id', 'name', 'edition_date'])
+            ->map(fn (Edition $edition): array => $this->mapEditionOption($edition))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int, array{id:int,name:string,position:int}>
+     */
+    private function categoriesPayload(): array
+    {
+        return Category::query()
+            ->orderBy('position')
+            ->orderBy('id')
+            ->get(['id', 'name', 'position'])
+            ->map(fn (Category $category): array => [
+                'id' => $category->id,
+                'name' => $category->name,
+                'position' => $category->position,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function availableDatesPayload(): array
+    {
+        return Edition::query()
+            ->published()
+            ->orderByDesc('edition_date')
+            ->orderByDesc('id')
+            ->get(['edition_date'])
+            ->map(fn (Edition $edition): string => $edition->edition_date->toDateString())
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function editionIdFromQuery(Request $request): ?int
+    {
+        $value = $request->query('edition');
+        $editionId = is_numeric($value) ? (int) $value : null;
+
+        return $editionId !== null && $editionId > 0
+            ? $editionId
+            : null;
+    }
+
+    private function baseEditionWithPagesQuery(): Builder
+    {
+        return Edition::query()
+            ->published()
+            ->withCount('pages')
+            ->with([
+                'pages' => fn ($query) => $query
+                    ->with([
+                        'category',
+                        'hotspots' => fn ($hotspotQuery) => $hotspotQuery
+                            ->with(['targetHotspot.page', 'linkedHotspot.page'])
+                            ->orderBy('id'),
+                    ])
+                    ->orderBy('page_no'),
+            ]);
+    }
+
+    private function findPublishedEditionForDate(string $date, ?int $requestedEditionId = null): ?Edition
+    {
+        $query = $this->baseEditionWithPagesQuery()->forDate($date);
+
+        if ($requestedEditionId !== null) {
+            $selectedEdition = (clone $query)
+                ->whereKey($requestedEditionId)
+                ->first();
+
+            if ($selectedEdition !== null) {
+                return $selectedEdition;
+            }
+        }
+
+        return $query
+            ->orderByDesc('id')
+            ->first();
+    }
+
+    /**
+     * @return array{id:int,name:string|null,edition_date:string}
+     */
+    private function mapEditionOption(Edition $edition): array
+    {
+        return [
+            'id' => $edition->id,
+            'name' => $edition->name,
+            'edition_date' => $edition->edition_date->toDateString(),
+        ];
+    }
+
     private function normalizeDate(mixed $date): ?CarbonImmutable
     {
         if (! is_string($date)) {
@@ -287,23 +364,6 @@ class PublicEpaperController extends Controller
             }
 
             return $parsed->startOfDay();
-        } catch (\Throwable) {
-            return null;
-        }
-    }
-
-    private function toDateString(mixed $value): ?string
-    {
-        if ($value instanceof DateTimeInterface) {
-            return CarbonImmutable::instance($value)->toDateString();
-        }
-
-        if (! is_string($value) || trim($value) === '') {
-            return null;
-        }
-
-        try {
-            return CarbonImmutable::parse($value)->toDateString();
         } catch (\Throwable) {
             return null;
         }

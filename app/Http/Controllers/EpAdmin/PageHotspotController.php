@@ -52,6 +52,7 @@ class PageHotspotController extends Controller
             'edition' => [
                 'id' => $selectedPage->edition->id,
                 'edition_date' => $selectedPage->edition->edition_date->toDateString(),
+                'name' => $selectedPage->edition->name,
                 'status' => $selectedPage->edition->status,
                 'published_at' => $selectedPage->edition->published_at?->toISOString(),
                 'pages_count' => $editionPages->count(),

@@ -5,7 +5,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
 type Props = {
+    editionId?: number | null;
     editionDate: string;
+    editionName?: string | null;
     status: 'draft' | 'published';
     pagesCount?: number | null;
     publishedAt?: string | null;
@@ -28,6 +30,18 @@ const publishedAtText = computed(() => {
 const statusVariant = computed<'default' | 'secondary'>(() => (
     props.status === 'published' ? 'default' : 'secondary'
 ));
+
+const editionLabel = computed(() => {
+    if (typeof props.editionName === 'string' && props.editionName.trim() !== '') {
+        return props.editionName.trim();
+    }
+
+    if (typeof props.editionId === 'number' && Number.isFinite(props.editionId) && props.editionId > 0) {
+        return `Edition ${props.editionId}`;
+    }
+
+    return props.editionDate;
+});
 </script>
 
 <template>
@@ -35,7 +49,10 @@ const statusVariant = computed<'default' | 'secondary'>(() => (
         <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div class="space-y-1">
                 <div class="flex flex-wrap items-center gap-2">
-                    <p class="text-sm font-semibold">Edition {{ props.editionDate }}</p>
+                    <p class="text-sm font-semibold">{{ editionLabel }}</p>
+                    <Badge variant="outline">
+                        {{ props.editionDate }}
+                    </Badge>
                     <Badge :variant="statusVariant">
                         {{ props.status }}
                     </Badge>

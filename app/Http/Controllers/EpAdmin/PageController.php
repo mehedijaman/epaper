@@ -27,8 +27,8 @@ class PageController extends Controller
 
         $this->authorize('update', $edition);
 
-        $uploadedFiles = collect($request->file('files', []))
-            ->filter(fn ($file): bool => $file instanceof UploadedFile)
+        $uploadedFiles = collect($validated['files'] ?? [])
+            ->filter(fn (mixed $file): bool => $file instanceof UploadedFile)
             ->values()
             ->all();
         $categoryId = array_key_exists('category_id', $validated) && $validated['category_id'] !== null
@@ -50,7 +50,10 @@ class PageController extends Controller
         );
 
         return redirect()
-            ->route('epadmin.editions.manage', ['date' => $edition->edition_date->toDateString()])
+            ->route('epadmin.editions.manage', [
+                'date' => $edition->edition_date->toDateString(),
+                'edition_id' => $edition->id,
+            ])
             ->with('success', sprintf('%d page(s) uploaded successfully.', $result['uploaded_count']))
             ->with('warnings', $result['warnings']);
     }
@@ -144,7 +147,10 @@ class PageController extends Controller
         });
 
         return redirect()
-            ->route('epadmin.editions.manage', ['date' => $edition->edition_date->toDateString()])
+            ->route('epadmin.editions.manage', [
+                'date' => $edition->edition_date->toDateString(),
+                'edition_id' => $edition->id,
+            ])
             ->with('success', 'Pages reordered successfully.');
     }
 
@@ -184,7 +190,10 @@ class PageController extends Controller
         });
 
         return redirect()
-            ->route('epadmin.editions.manage', ['date' => $page->edition->edition_date->toDateString()])
+            ->route('epadmin.editions.manage', [
+                'date' => $page->edition->edition_date->toDateString(),
+                'edition_id' => $page->edition->id,
+            ])
             ->with('success', sprintf('Page %d updated successfully.', $newPageNo));
     }
 
@@ -207,7 +216,10 @@ class PageController extends Controller
         );
 
         return redirect()
-            ->route('epadmin.editions.manage', ['date' => $page->edition->edition_date->toDateString()])
+            ->route('epadmin.editions.manage', [
+                'date' => $page->edition->edition_date->toDateString(),
+                'edition_id' => $page->edition->id,
+            ])
             ->with('success', sprintf('Page %d image replaced successfully.', $page->page_no));
     }
 
@@ -225,7 +237,10 @@ class PageController extends Controller
         });
 
         return redirect()
-            ->route('epadmin.editions.manage', ['date' => $editionDate])
+            ->route('epadmin.editions.manage', [
+                'date' => $editionDate,
+                'edition_id' => $page->edition_id,
+            ])
             ->with('success', sprintf('Page %d deleted successfully.', $pageNo));
     }
 }

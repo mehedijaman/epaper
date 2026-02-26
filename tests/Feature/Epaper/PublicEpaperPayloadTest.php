@@ -33,6 +33,7 @@ test('homepage prefers today published edition in Asia/Dhaka', function () {
 
     $todayEdition = Edition::query()->create([
         'edition_date' => '2026-02-20',
+        'name' => 'City Final',
         'status' => Edition::STATUS_PUBLISHED,
         'published_at' => now(),
         'created_by' => $user->id,
@@ -70,6 +71,11 @@ test('homepage prefers today published edition in Asia/Dhaka', function () {
             ->where('selected_date', '2026-02-20')
             ->where('selected_page_no', 1)
             ->where('current_page.page_no', 1)
+            ->where('selected_edition.id', $todayEdition->id)
+            ->where('selected_edition.name', 'City Final')
+            ->has('editions_for_date', 1)
+            ->where('editions_for_date.0.id', $todayEdition->id)
+            ->has('categories', 0)
             ->has('available_dates')
         );
 });
@@ -88,6 +94,7 @@ test('homepage falls back to latest published edition when today is missing', fu
 
     $latestEdition = Edition::query()->create([
         'edition_date' => '2026-02-24',
+        'name' => 'Late City',
         'status' => Edition::STATUS_PUBLISHED,
         'published_at' => now(),
         'created_by' => $user->id,
@@ -124,6 +131,9 @@ test('homepage falls back to latest published edition when today is missing', fu
             ->where('edition.edition_date', '2026-02-24')
             ->where('selected_date', '2026-02-24')
             ->where('selected_page_no', 1)
+            ->where('selected_edition.id', $latestEdition->id)
+            ->where('selected_edition.name', 'Late City')
+            ->has('editions_for_date', 1)
         );
 });
 
@@ -140,6 +150,12 @@ test('viewer returns pages categories hotspots and date navigation payload', fun
     $category = Category::query()->create([
         'name' => 'প্রথম পাতা',
         'position' => 1,
+        'is_active' => true,
+    ]);
+
+    $categoryWithoutPage = Category::query()->create([
+        'name' => 'খেলা',
+        'position' => 2,
         'is_active' => true,
     ]);
 
@@ -190,9 +206,14 @@ test('viewer returns pages categories hotspots and date navigation payload', fun
             ->where('pages.0.page_no', 1)
             ->where('pages.0.category_id', $category->id)
             ->where('pages.0.category_name', $category->name)
-            ->has('categories', 1)
+            ->has('categories', 2)
             ->where('categories.0.id', $category->id)
             ->where('categories.0.name', $category->name)
+            ->where('categories.1.id', $categoryWithoutPage->id)
+            ->where('categories.1.name', $categoryWithoutPage->name)
+            ->where('selected_edition.id', $edition->id)
+            ->has('editions_for_date', 1)
+            ->where('editions_for_date.0.id', $edition->id)
             ->has('page.hotspots', 1)
             ->where('page.hotspots.0.relation_kind', 'next')
             ->where('page.hotspots.0.target_page_no', 2)

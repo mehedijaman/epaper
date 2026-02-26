@@ -18,7 +18,6 @@ class CategoryStoreRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:150'],
-            'position' => ['required', 'integer', 'min:1', 'unique:categories,position'],
             'is_active' => ['required', 'boolean'],
         ];
     }

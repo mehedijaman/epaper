@@ -85,7 +85,10 @@ test('page manager can update page metadata and keep hotspot targets in sync', f
             'page_no' => 5,
             'category_id' => null,
         ])
-        ->assertRedirect(route('epadmin.editions.manage', ['date' => '2026-02-20']));
+        ->assertRedirect(route('epadmin.editions.manage', [
+            'date' => '2026-02-20',
+            'edition_id' => $edition->id,
+        ]));
 
     $this->assertDatabaseHas('pages', [
         'id' => $pageOne->id,
@@ -175,7 +178,10 @@ test('page manager can reorder pages and remap hotspot target page numbers', fun
             'edition_id' => $edition->id,
             'ordered_page_ids' => [$pageThree->id, $pageOne->id, $pageTwo->id],
         ])
-        ->assertRedirect(route('epadmin.editions.manage', ['date' => '2026-02-20']));
+        ->assertRedirect(route('epadmin.editions.manage', [
+            'date' => '2026-02-20',
+            'edition_id' => $edition->id,
+        ]));
 
     $this->assertDatabaseHas('pages', [
         'id' => $pageThree->id,
@@ -232,7 +238,10 @@ test('page manager can replace a page image', function () {
         ->put(route('epadmin.pages.replace', ['page' => $page->id]), [
             'file' => UploadedFile::fake()->image('page-0001.jpg', 1200, 1600),
         ])
-        ->assertRedirect(route('epadmin.editions.manage', ['date' => '2026-02-20']));
+        ->assertRedirect(route('epadmin.editions.manage', [
+            'date' => '2026-02-20',
+            'edition_id' => $edition->id,
+        ]));
 
     $page->refresh();
 
@@ -292,7 +301,10 @@ test('page manager can delete a page and its hotspot mappings', function () {
 
     $this->actingAs($operator)
         ->delete(route('epadmin.pages.destroy', ['page' => $page->id]))
-        ->assertRedirect(route('epadmin.editions.manage', ['date' => '2026-02-20']));
+        ->assertRedirect(route('epadmin.editions.manage', [
+            'date' => '2026-02-20',
+            'edition_id' => $edition->id,
+        ]));
 
     $this->assertDatabaseMissing('pages', ['id' => $page->id]);
     $this->assertDatabaseMissing('page_hotspots', ['id' => $hotspot->id]);
@@ -300,6 +312,79 @@ test('page manager can delete a page and its hotspot mappings', function () {
     Storage::disk('public')->assertMissing('epaper/2026-02-20/original/page-0001-old.jpg');
     Storage::disk('public')->assertMissing('epaper/2026-02-20/large/page-0001-old.jpg');
     Storage::disk('public')->assertMissing('epaper/2026-02-20/thumb/page-0001-old.jpg');
+});
+
+test('admin can delete an edition and all uploaded page files', function () {
+    Storage::fake('public');
+
+    $admin = User::factory()->create();
+    $admin->assignRole('admin');
+
+    $edition = Edition::query()->create([
+        'edition_date' => '2026-02-22',
+        'status' => Edition::STATUS_DRAFT,
+        'created_by' => $admin->id,
+    ]);
+
+    $pageOne = Page::query()->create([
+        'edition_id' => $edition->id,
+        'page_no' => 1,
+        'category_id' => null,
+        'image_original_path' => 'epaper/2026-02-22/original/page-0001.jpg',
+        'image_large_path' => 'epaper/2026-02-22/large/page-0001.jpg',
+        'image_thumb_path' => 'epaper/2026-02-22/thumb/page-0001.jpg',
+        'width' => 2000,
+        'height' => 2600,
+        'uploaded_by' => $admin->id,
+    ]);
+
+    $pageTwo = Page::query()->create([
+        'edition_id' => $edition->id,
+        'page_no' => 2,
+        'category_id' => null,
+        'image_original_path' => 'epaper/2026-02-22/original/page-0002.jpg',
+        'image_large_path' => 'epaper/2026-02-22/large/page-0002.jpg',
+        'image_thumb_path' => 'epaper/2026-02-22/thumb/page-0002.jpg',
+        'width' => 2000,
+        'height' => 2600,
+        'uploaded_by' => $admin->id,
+    ]);
+
+    $hotspot = PageHotspot::query()->create([
+        'page_id' => $pageOne->id,
+        'type' => 'relation',
+        'relation_kind' => 'next',
+        'target_page_no' => 2,
+        'x' => 0.10,
+        'y' => 0.20,
+        'w' => 0.25,
+        'h' => 0.20,
+        'label' => 'To page 2',
+        'created_by' => $admin->id,
+    ]);
+
+    Storage::disk('public')->put($pageOne->image_original_path, 'page-1-original');
+    Storage::disk('public')->put($pageOne->image_large_path, 'page-1-large');
+    Storage::disk('public')->put($pageOne->image_thumb_path, 'page-1-thumb');
+    Storage::disk('public')->put($pageTwo->image_original_path, 'page-2-original');
+    Storage::disk('public')->put($pageTwo->image_large_path, 'page-2-large');
+    Storage::disk('public')->put($pageTwo->image_thumb_path, 'page-2-thumb');
+
+    $this->actingAs($admin)
+        ->delete(route('epadmin.editions.destroy', ['edition' => $edition->id]))
+        ->assertRedirect(route('epadmin.editions.manage', ['date' => '2026-02-22']));
+
+    $this->assertDatabaseMissing('editions', ['id' => $edition->id]);
+    $this->assertDatabaseMissing('pages', ['id' => $pageOne->id]);
+    $this->assertDatabaseMissing('pages', ['id' => $pageTwo->id]);
+    $this->assertDatabaseMissing('page_hotspots', ['id' => $hotspot->id]);
+
+    Storage::disk('public')->assertMissing('epaper/2026-02-22/original/page-0001.jpg');
+    Storage::disk('public')->assertMissing('epaper/2026-02-22/large/page-0001.jpg');
+    Storage::disk('public')->assertMissing('epaper/2026-02-22/thumb/page-0001.jpg');
+    Storage::disk('public')->assertMissing('epaper/2026-02-22/original/page-0002.jpg');
+    Storage::disk('public')->assertMissing('epaper/2026-02-22/large/page-0002.jpg');
+    Storage::disk('public')->assertMissing('epaper/2026-02-22/thumb/page-0002.jpg');
 });
 
 test('page manager can upload pages with selected category', function () {
@@ -329,12 +414,51 @@ test('page manager can upload pages with selected category', function () {
                 UploadedFile::fake()->image('001.jpg', 1200, 1600),
             ],
         ])
-        ->assertRedirect(route('epadmin.editions.manage', ['date' => '2026-02-20']));
+        ->assertRedirect(route('epadmin.editions.manage', [
+            'date' => '2026-02-20',
+            'edition_id' => $edition->id,
+        ]));
 
     $this->assertDatabaseHas('pages', [
         'edition_id' => $edition->id,
         'page_no' => 1,
         'category_id' => $category->id,
+    ]);
+});
+
+test('page manager can upload multiple page images in one request', function () {
+    Storage::fake('public');
+
+    $operator = User::factory()->create();
+    $operator->assignRole('operator');
+
+    $edition = Edition::query()->create([
+        'edition_date' => '2026-02-21',
+        'status' => Edition::STATUS_DRAFT,
+        'created_by' => $operator->id,
+    ]);
+
+    $this->actingAs($operator)
+        ->post(route('epadmin.pages.upload'), [
+            'edition_id' => $edition->id,
+            'page_no_strategy' => 'next_available',
+            'files' => [
+                UploadedFile::fake()->image('001.jpg', 1200, 1600),
+                UploadedFile::fake()->image('002.jpg', 1200, 1600),
+            ],
+        ])
+        ->assertRedirect(route('epadmin.editions.manage', [
+            'date' => '2026-02-21',
+            'edition_id' => $edition->id,
+        ]));
+
+    $this->assertDatabaseHas('pages', [
+        'edition_id' => $edition->id,
+        'page_no' => 1,
+    ]);
+    $this->assertDatabaseHas('pages', [
+        'edition_id' => $edition->id,
+        'page_no' => 2,
     ]);
 });
 

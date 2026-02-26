@@ -1,13 +1,22 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import PublicViewerShell from '@/components/epaper/PublicViewerShell.vue';
-import type { Edition, Page, ViewerCategoryItem, ViewerPageListItem } from '@/types';
+import type {
+    Edition,
+    Page,
+    ViewerCategoryItem,
+    ViewerEditionItem,
+    ViewerPageListItem,
+} from '@/types';
 
 const props = defineProps<{
     edition: Edition | null;
+    selected_edition: ViewerEditionItem | null;
+    editions_for_date: ViewerEditionItem[];
     current_page: Page | null;
     selected_page_no: number | null;
     selected_date: string | null;
+    categories: ViewerCategoryItem[];
     available_dates: string[];
     logo_url: string | null;
     settings: {
@@ -33,24 +42,6 @@ const pages = computed<ViewerPageListItem[]>(() => {
         image_original_url: item.image_original_url,
         hotspots: item.hotspots,
     }));
-});
-
-const categories = computed<ViewerCategoryItem[]>(() => {
-    const map = new Map<number, ViewerCategoryItem>();
-
-    for (const page of pages.value) {
-        if (page.category_id === null || page.category_name === null || map.has(page.category_id)) {
-            continue;
-        }
-
-        map.set(page.category_id, {
-            id: page.category_id,
-            name: page.category_name,
-            position: page.page_no,
-        });
-    }
-
-    return Array.from(map.values()).sort((a, b) => a.position - b.position);
 });
 
 const currentPage = computed<Page | null>(() => {
@@ -85,6 +76,8 @@ const editionDate = computed<string | null>(() => {
         :page="currentPage"
         :pages="pages"
         :categories="categories"
+        :editions-for-date="editions_for_date"
+        :selected-edition="selected_edition"
         :available-dates="available_dates"
         :logo-url="logo_url"
         :settings="settings"

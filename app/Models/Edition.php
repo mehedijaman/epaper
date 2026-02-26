@@ -21,6 +21,7 @@ class Edition extends Model
      */
     protected $fillable = [
         'edition_date',
+        'name',
         'status',
         'published_at',
         'created_by',
@@ -33,6 +34,7 @@ class Edition extends Model
     {
         return [
             'edition_date' => 'date',
+            'name' => 'string',
             'status' => 'string',
             'published_at' => 'datetime',
             'created_by' => 'integer',

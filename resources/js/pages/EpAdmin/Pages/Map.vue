@@ -37,6 +37,7 @@ import type { BreadcrumbItem, Hotspot, Page } from '@/types';
 type EditionInfo = {
     id: number;
     edition_date: string;
+    name?: string | null;
     status: 'draft' | 'published';
     published_at: string | null;
     pages_count: number;
@@ -427,19 +428,30 @@ const hasNextPage = computed(
         selectedPageIndex.value >= 0 &&
         selectedPageIndex.value < props.edition_pages.length - 1,
 );
+const editionLabel = computed(() => {
+    if (props.edition !== null && typeof props.edition.name === 'string' && props.edition.name.trim() !== '') {
+        return props.edition.name.trim();
+    }
+
+    if (props.edition !== null) {
+        return `Edition ${props.edition.id}`;
+    }
+
+    return 'Edition';
+});
 const manageHref = computed<string | undefined>(() => {
     if (props.edition === null) {
         return undefined;
     }
 
-    return `/admin/editions/manage?date=${props.edition.edition_date}`;
+    return `/admin/editions/manage?date=${props.edition.edition_date}&edition_id=${props.edition.id}`;
 });
 const publishHref = computed<string | undefined>(() => {
     if (props.edition === null) {
         return undefined;
     }
 
-    return `/admin/editions/publish?date=${props.edition.edition_date}`;
+    return `/admin/editions/publish?date=${props.edition.edition_date}&edition_id=${props.edition.id}`;
 });
 const mappingHref = computed<string | undefined>(() => {
     if (selectedPageId.value === '') {
@@ -2082,10 +2094,8 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                             <CardTitle
                                 class="flex flex-wrap items-center gap-2"
                             >
-                                <span
-                                    >Edition
-                                    {{ props.edition?.edition_date }}</span
-                                >
+                                <span>{{ editionLabel }}</span>
+                                <Badge variant="outline">{{ props.edition?.edition_date }}</Badge>
                                 <Badge
                                     :variant="
                                         props.edition?.status === 'published'
@@ -2110,7 +2120,9 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                 <CardContent class="space-y-4 p-4">
                     <EditionContextBar
                         v-if="props.edition"
+                        :edition-id="props.edition.id"
                         :edition-date="props.edition.edition_date"
+                        :edition-name="props.edition.name"
                         :status="props.edition.status"
                         :pages-count="props.edition.pages_count"
                         :published-at="props.edition.published_at"

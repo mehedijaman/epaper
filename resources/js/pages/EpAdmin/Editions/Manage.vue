@@ -35,6 +35,7 @@ import type { BreadcrumbItem, Category, Page } from '@/types';
 type EditionSummary = {
     id: number;
     edition_date: string;
+    name?: string | null;
     status: 'draft' | 'published';
     published_at: string | null;
 };
@@ -42,17 +43,26 @@ type EditionSummary = {
 type EditionOption = {
     id: number;
     edition_date: string;
+    name?: string | null;
     status: 'draft' | 'published';
+    published_at: string | null;
     pages_count: number;
 };
 
 type Props = {
-    date: string;
-    date_error: string | null;
-    date_notice: string | null;
-    selected_edition_id: number | null;
-    edition_options: EditionOption[];
-    edition: EditionSummary | null;
+    selectedDate: string | null;
+    dateError: string | null;
+    dateNotice: string | null;
+    selectedEdition: EditionSummary | null;
+    canDeleteSelectedEdition: boolean;
+    editionsForDate: EditionOption[];
+    uploadConstraints: {
+        maxFileSizeKb: number;
+        maxFiles: number;
+        serverUploadMaxBytes: number;
+        serverPostMaxBytes: number;
+        serverMaxFileUploads: number;
+    };
     pages: Page[];
     categories: Category[];
 };
@@ -63,22 +73,25 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Manage Editions', href: '/admin/editions/manage' },
 ];
 
-const date = ref(props.date);
+const date = ref(props.selectedDate ?? '');
 const selectedEditionId = ref(
-    typeof props.selected_edition_id === 'number' && props.selected_edition_id > 0
-        ? String(props.selected_edition_id)
+    typeof props.selectedEdition?.id === 'number' && props.selectedEdition.id > 0
+        ? String(props.selectedEdition.id)
         : 'none',
 );
+const createEditionDialogOpen = ref(false);
+const editEditionNameDialogOpen = ref(false);
+const deleteEditionDialogOpen = ref(false);
 
 watch(
-    () => props.date,
+    () => props.selectedDate,
     (value) => {
-        date.value = value;
+        date.value = value ?? '';
     },
 );
 
 watch(
-    () => props.selected_edition_id,
+    () => props.selectedEdition?.id ?? null,
     (value) => {
         selectedEditionId.value = typeof value === 'number' && value > 0 ? String(value) : 'none';
     },
@@ -86,8 +99,10 @@ watch(
 
 const editionPages = computed<Page[]>(() => props.pages ?? []);
 const orderedPages = ref<Page[]>([]);
-const hasEdition = computed(() => props.edition !== null);
-const editionId = computed<number>(() => props.edition?.id ?? 0);
+const hasEdition = computed(() => props.selectedEdition !== null);
+const canDeleteEdition = computed(() => hasEdition.value && props.canDeleteSelectedEdition);
+const hasSelectedDate = computed(() => date.value !== '');
+const editionId = computed<number>(() => props.selectedEdition?.id ?? 0);
 const activePageId = ref<number | null>(null);
 const isEditDialogOpen = ref(false);
 const replaceInputKey = ref(0);
@@ -128,6 +143,19 @@ const reorderForm = useForm<{
     edition_id: 0,
     ordered_page_ids: [],
 });
+const createEditionForm = useForm<{
+    edition_date: string;
+    name: string;
+}>({
+    edition_date: '',
+    name: '',
+});
+const editEditionNameForm = useForm<{
+    name: string;
+}>({
+    name: '',
+});
+const deleteEditionForm = useForm<Record<string, never>>({});
 
 const selectedCategoryValue = computed<string>({
     get: () => {
@@ -184,10 +212,8 @@ watch(
     { immediate: true },
 );
 
-function searchByDate(): void {
-    const parsedEditionId = selectedEditionId.value !== 'none'
-        ? Number.parseInt(selectedEditionId.value, 10)
-        : Number.NaN;
+function loadManagePage(editionIdValue: number | null): void {
+    const parsedEditionId = editionIdValue ?? Number.NaN;
 
     router.get(
         '/admin/editions/manage',
@@ -196,23 +222,6 @@ function searchByDate(): void {
             edition_id: Number.isFinite(parsedEditionId) && parsedEditionId > 0
                 ? parsedEditionId
                 : undefined,
-            create: undefined,
-        },
-        {
-            preserveScroll: true,
-            preserveState: true,
-            replace: true,
-        },
-    );
-}
-
-function createEditionByDate(): void {
-    router.get(
-        '/admin/editions/manage',
-        {
-            date: date.value !== '' ? date.value : undefined,
-            edition_id: undefined,
-            create: date.value !== '' ? 1 : undefined,
         },
         {
             preserveScroll: true,
@@ -223,17 +232,14 @@ function createEditionByDate(): void {
 }
 
 function onDateInputChanged(): void {
-    if (selectedEditionId.value === 'none') {
+    selectedEditionId.value = 'none';
+
+    if (date.value === '') {
+        loadManagePage(null);
         return;
     }
 
-    const selectedEdition = props.edition_options.find(
-        (item) => String(item.id) === selectedEditionId.value,
-    );
-
-    if (selectedEdition === undefined || selectedEdition.edition_date !== date.value) {
-        selectedEditionId.value = 'none';
-    }
+    loadManagePage(null);
 }
 
 function onEditionSelect(value: unknown): void {
@@ -247,21 +253,105 @@ function onEditionSelect(value: unknown): void {
 
     selectedEditionId.value = normalizedValue;
 
-    if (normalizedValue === 'none') {
+    loadManagePage(
+        normalizedValue === 'none'
+            ? null
+            : Number.parseInt(normalizedValue, 10),
+    );
+}
+
+function openCreateEditionDialog(): void {
+    if (date.value === '') {
         return;
     }
 
-    const selectedEdition = props.edition_options.find((item) => String(item.id) === normalizedValue);
+    createEditionForm.reset();
+    createEditionForm.clearErrors();
+    createEditionForm.edition_date = date.value;
+    createEditionDialogOpen.value = true;
+}
 
-    if (selectedEdition !== undefined) {
-        date.value = selectedEdition.edition_date;
+function submitCreateEdition(): void {
+    if (date.value === '') {
+        return;
     }
+
+    createEditionForm.edition_date = date.value;
+    createEditionForm.post('/admin/editions', {
+        preserveScroll: true,
+        onSuccess: () => {
+            createEditionDialogOpen.value = false;
+            createEditionForm.reset();
+        },
+    });
+}
+
+function openEditEditionNameDialog(): void {
+    if (props.selectedEdition === null) {
+        return;
+    }
+
+    editEditionNameForm.reset();
+    editEditionNameForm.clearErrors();
+    editEditionNameForm.name = props.selectedEdition.name ?? '';
+    editEditionNameDialogOpen.value = true;
+}
+
+function submitEditEditionName(): void {
+    if (props.selectedEdition === null) {
+        return;
+    }
+
+    editEditionNameForm.patch(`/admin/editions/${props.selectedEdition.id}`, {
+        preserveScroll: true,
+        onSuccess: () => {
+            editEditionNameDialogOpen.value = false;
+        },
+    });
+}
+
+function openDeleteEditionDialog(): void {
+    if (!canDeleteEdition.value) {
+        return;
+    }
+
+    deleteEditionForm.clearErrors();
+    deleteEditionDialogOpen.value = true;
+}
+
+function confirmDeleteEdition(): void {
+    if (props.selectedEdition === null || !canDeleteEdition.value) {
+        return;
+    }
+
+    deleteEditionForm.delete(`/admin/editions/${props.selectedEdition.id}`, {
+        preserveScroll: true,
+        onSuccess: () => {
+            deleteEditionDialogOpen.value = false;
+        },
+    });
+}
+
+function onDeleteEditionDialogOpenChange(value: boolean): void {
+    deleteEditionDialogOpen.value = value;
+
+    if (!value) {
+        deleteEditionForm.clearErrors();
+    }
+}
+
+function formatEditionName(item: { id: number; edition_date: string; name?: string | null }): string {
+    if (typeof item.name === 'string' && item.name.trim() !== '') {
+        return item.name.trim();
+    }
+
+    return `Edition ${item.id}`;
 }
 
 function formatEditionOption(item: EditionOption): string {
     const pageSuffix = item.pages_count === 1 ? 'page' : 'pages';
 
-    return `${item.edition_date} | ${item.status} | ${item.pages_count} ${pageSuffix}`;
+    return `${formatEditionName(item)} | ${item.edition_date} | ${item.status} | ${item.pages_count} ${pageSuffix}`;
 }
 
 function refreshAfterUpload(): void {
@@ -553,19 +643,19 @@ const mappingHref = computed<string | undefined>(() => {
 });
 
 const publishHref = computed<string | undefined>(() => {
-    if (props.edition === null) {
+    if (props.selectedEdition === null) {
         return undefined;
     }
 
-    return `/admin/editions/publish?date=${props.edition.edition_date}`;
+    return `/admin/editions/publish?date=${props.selectedEdition.edition_date}&edition_id=${props.selectedEdition.id}`;
 });
 
 const manageHref = computed<string | undefined>(() => {
-    if (props.edition === null) {
+    if (props.selectedEdition === null) {
         return undefined;
     }
 
-    return `/admin/editions/manage?date=${props.edition.edition_date}`;
+    return `/admin/editions/manage?date=${props.selectedEdition.edition_date}&edition_id=${props.selectedEdition.id}`;
 });
 
 watch(deleteDialogOpen, (isOpen) => {
@@ -598,6 +688,11 @@ watch(
         pendingUndoOrderIds.value = null;
         reorderNotice.value = null;
         reorderForm.clearErrors('ordered_page_ids');
+        editEditionNameDialogOpen.value = false;
+        editEditionNameForm.reset();
+        editEditionNameForm.clearErrors();
+        deleteEditionDialogOpen.value = false;
+        deleteEditionForm.clearErrors();
     },
 );
 
@@ -637,7 +732,7 @@ watch(isEditDialogOpen, (isOpen) => {
 
             <Card class="border-border/70">
                 <CardHeader class="pb-2">
-                    <CardTitle>Search edition by date</CardTitle>
+                    <CardTitle>Select date and edition</CardTitle>
                 </CardHeader>
                 <CardContent class="space-y-3">
                     <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,220px)_minmax(0,320px)_auto] xl:items-end">
@@ -645,20 +740,20 @@ watch(isEditDialogOpen, (isOpen) => {
                             <label for="manage-edition-date" class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                                 Edition date
                             </label>
-                            <Input id="manage-edition-date" v-model="date" type="date" @input="onDateInputChanged" />
+                            <Input id="manage-edition-date" v-model="date" type="date" @change="onDateInputChanged" />
                         </div>
                         <div class="space-y-1">
                             <label class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                                 Edition
                             </label>
                             <Select :model-value="selectedEditionId" @update:model-value="onEditionSelect">
-                                <SelectTrigger>
+                                <SelectTrigger :disabled="!hasSelectedDate">
                                     <SelectValue placeholder="Select edition" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="none">Select by date</SelectItem>
+                                    <SelectItem value="none">Select an edition</SelectItem>
                                     <SelectItem
-                                        v-for="item in props.edition_options"
+                                        v-for="item in props.editionsForDate"
                                         :key="item.id"
                                         :value="String(item.id)"
                                     >
@@ -667,36 +762,54 @@ watch(isEditDialogOpen, (isOpen) => {
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
-                            <Button class="w-full md:w-auto xl:min-w-28" @click="searchByDate">
-                                Search
-                            </Button>
+                        <div class="grid gap-2 sm:grid-cols-1 xl:grid-cols-1">
                             <Button
                                 class="w-full md:w-auto xl:min-w-28"
                                 variant="outline"
-                                :disabled="date === ''"
-                                @click="createEditionByDate"
+                                :disabled="!hasSelectedDate"
+                                @click="openCreateEditionDialog"
                             >
-                                Create draft edition
+                                Create new edition
+                            </Button>
+                            <Button
+                                class="w-full md:w-auto xl:min-w-28"
+                                variant="secondary"
+                                :disabled="!hasEdition"
+                                @click="openEditEditionNameDialog"
+                            >
+                                Edit edition name
+                            </Button>
+                            <Button
+                                class="w-full md:w-auto xl:min-w-28"
+                                variant="destructive"
+                                :disabled="!canDeleteEdition || deleteEditionForm.processing"
+                                @click="openDeleteEditionDialog"
+                            >
+                                Delete edition
                             </Button>
                         </div>
                     </div>
-                    <p v-if="props.date_error" class="text-sm text-destructive">
-                        {{ props.date_error }}
+                    <p v-if="!hasSelectedDate" class="text-sm text-muted-foreground">
+                        Pick a date to load available editions.
                     </p>
-                    <p v-if="props.date_notice" class="text-sm text-muted-foreground">
-                        {{ props.date_notice }}
+                    <p v-if="props.dateError" class="text-sm text-destructive">
+                        {{ props.dateError }}
+                    </p>
+                    <p v-if="props.dateNotice" class="text-sm text-muted-foreground">
+                        {{ props.dateNotice }}
                     </p>
                 </CardContent>
             </Card>
 
             <div v-if="hasEdition" class="space-y-4">
                 <EditionContextBar
-                    v-if="props.edition"
-                    :edition-date="props.edition.edition_date"
-                    :status="props.edition.status"
+                    v-if="props.selectedEdition"
+                    :edition-id="props.selectedEdition.id"
+                    :edition-date="props.selectedEdition.edition_date"
+                    :edition-name="props.selectedEdition.name"
+                    :status="props.selectedEdition.status"
                     :pages-count="orderedPages.length"
-                    :published-at="props.edition.published_at"
+                    :published-at="props.selectedEdition.published_at"
                     :manage-href="manageHref"
                     :publish-href="publishHref"
                     :mapping-href="mappingHref"
@@ -705,6 +818,7 @@ watch(isEditDialogOpen, (isOpen) => {
                 <MultiPageUploadForm
                     :edition-id="editionId"
                     :categories="props.categories"
+                    :upload-constraints="props.uploadConstraints"
                     :existing-page-numbers="orderedPages.map((page) => page.page_no)"
                     @uploaded="refreshAfterUpload"
                 />
@@ -867,9 +981,118 @@ watch(isEditDialogOpen, (isOpen) => {
 
             <Card v-else>
                 <CardContent class="py-6 text-sm text-muted-foreground">
-                    Select a date and click Search to load or create an edition.
+                    <p v-if="!hasSelectedDate">
+                        Select a date to load editions.
+                    </p>
+                    <p v-else>
+                        Select an edition for {{ date }} or create a new one.
+                    </p>
                 </CardContent>
             </Card>
+
+            <Dialog v-model:open="createEditionDialogOpen">
+                <DialogContent class="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Create new edition</DialogTitle>
+                        <DialogDescription>
+                            This creates a new draft edition for {{ date }}.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div class="space-y-4">
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium" for="create-edition-date">
+                                Edition date
+                            </label>
+                            <Input id="create-edition-date" v-model="createEditionForm.edition_date" type="date" disabled />
+                            <p v-if="createEditionForm.errors.edition_date" class="text-xs text-destructive">
+                                {{ createEditionForm.errors.edition_date }}
+                            </p>
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium" for="create-edition-name">
+                                Name (optional)
+                            </label>
+                            <Input
+                                id="create-edition-name"
+                                v-model="createEditionForm.name"
+                                type="text"
+                                maxlength="150"
+                                placeholder="Morning Edition"
+                            />
+                            <p class="text-xs text-muted-foreground">
+                                If empty, a default label like "Edition 42" will be shown.
+                            </p>
+                            <p v-if="createEditionForm.errors.name" class="text-xs text-destructive">
+                                {{ createEditionForm.errors.name }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" :disabled="createEditionForm.processing" @click="createEditionDialogOpen = false">
+                            Cancel
+                        </Button>
+                        <Button :disabled="createEditionForm.processing || !hasSelectedDate" @click="submitCreateEdition">
+                            Create edition
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog v-model:open="editEditionNameDialogOpen">
+                <DialogContent class="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Edit edition name</DialogTitle>
+                        <DialogDescription>
+                            Update the name shown for this edition.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div class="space-y-4">
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium" for="edit-edition-date">
+                                Edition date
+                            </label>
+                            <Input
+                                id="edit-edition-date"
+                                :model-value="props.selectedEdition?.edition_date ?? ''"
+                                type="date"
+                                disabled
+                            />
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium" for="edit-edition-name">
+                                Name (optional)
+                            </label>
+                            <Input
+                                id="edit-edition-name"
+                                v-model="editEditionNameForm.name"
+                                type="text"
+                                maxlength="150"
+                                placeholder="Morning Edition"
+                            />
+                            <p class="text-xs text-muted-foreground">
+                                Leave blank to use the default label.
+                            </p>
+                            <p v-if="editEditionNameForm.errors.name" class="text-xs text-destructive">
+                                {{ editEditionNameForm.errors.name }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" :disabled="editEditionNameForm.processing" @click="editEditionNameDialogOpen = false">
+                            Cancel
+                        </Button>
+                        <Button :disabled="editEditionNameForm.processing || !hasEdition" @click="submitEditEditionName">
+                            Save name
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <Dialog :open="isEditDialogOpen" @update:open="onEditDialogOpenChange">
                 <DialogContent class="sm:max-w-2xl">
@@ -980,6 +1203,19 @@ watch(isEditDialogOpen, (isOpen) => {
                 confirm-variant="destructive"
                 @update:open="onDeleteDialogOpenChange"
                 @confirm="confirmDeletePage"
+            />
+
+            <ConfirmActionDialog
+                :open="deleteEditionDialogOpen"
+                title="Delete edition?"
+                :description="props.selectedEdition === null
+                    ? 'This edition and all uploaded pages will be deleted.'
+                    : `Delete ${formatEditionName(props.selectedEdition)} on ${props.selectedEdition.edition_date}? This deletes all uploaded pages and hotspots for this edition.`"
+                confirm-text="Delete edition"
+                confirm-variant="destructive"
+                :processing="deleteEditionForm.processing"
+                @update:open="onDeleteEditionDialogOpenChange"
+                @confirm="confirmDeleteEdition"
             />
         </div>
     </EpAdminLayout>
