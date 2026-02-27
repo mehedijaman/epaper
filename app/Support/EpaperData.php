@@ -23,12 +23,18 @@ class EpaperData
         $linkedPageNo = $hotspot->relationLoaded('page')
             ? $hotspot->page?->page_no
             : null;
+        $targetPageNo = $hotspot->target_page_no !== null
+            ? (int) $hotspot->target_page_no
+            : null;
+        $resolvedPageNo = $linkedPageNo !== null
+            ? (int) $linkedPageNo
+            : $targetPageNo;
 
         return [
             'id' => $hotspot->id,
-            'page_no' => (int) ($linkedPageNo ?? $hotspot->target_page_no ?? 1),
+            'page_no' => $resolvedPageNo,
             'relation_kind' => $hotspot->relation_kind ?? 'next',
-            'target_page_no' => $hotspot->target_page_no ?? 1,
+            'target_page_no' => $targetPageNo,
             'x' => round((float) $hotspot->x, 6),
             'y' => round((float) $hotspot->y, 6),
             'w' => round((float) $hotspot->w, 6),
@@ -48,7 +54,9 @@ class EpaperData
                 fn (PageHotspot $hotspot): array => [
                     'id' => $hotspot->id,
                     'relation_kind' => $hotspot->relation_kind ?? 'next',
-                    'target_page_no' => $hotspot->target_page_no ?? 1,
+                    'target_page_no' => $hotspot->target_page_no !== null
+                        ? (int) $hotspot->target_page_no
+                        : null,
                     'target_hotspot_id' => $hotspot->target_hotspot_id,
                     'linked_hotspot_id' => $hotspot->linked_hotspot_id,
                     'x' => round((float) $hotspot->x, 6),

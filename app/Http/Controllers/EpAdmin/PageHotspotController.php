@@ -77,7 +77,9 @@ class PageHotspotController extends Controller
                         ->map(fn (PageHotspot $hotspot): array => [
                             'id' => $hotspot->id,
                             'relation_kind' => $hotspot->relation_kind ?? 'next',
-                            'target_page_no' => $hotspot->target_page_no ?? 1,
+                            'target_page_no' => $hotspot->target_page_no !== null
+                                ? (int) $hotspot->target_page_no
+                                : null,
                             'label' => $hotspot->label,
                         ])
                         ->values()
@@ -93,14 +95,15 @@ class PageHotspotController extends Controller
         $validated = $request->validated();
         $page = Page::query()->findOrFail((int) $validated['page_id']);
         $targetHotspotId = $this->parseTargetHotspotId($validated);
+        $targetPageNo = $this->parseTargetPageNo($validated, $targetHotspotId);
 
         $this->authorize('create', PageHotspot::class);
 
-        DB::transaction(function () use ($page, $validated, $targetHotspotId, $request): void {
+        DB::transaction(function () use ($page, $validated, $targetHotspotId, $targetPageNo, $request): void {
             $hotspot = $page->hotspots()->create([
                 'type' => 'relation',
                 'relation_kind' => $validated['relation_kind'],
-                'target_page_no' => (int) $validated['target_page_no'],
+                'target_page_no' => $targetPageNo,
                 'target_hotspot_id' => null,
                 'linked_hotspot_id' => null,
                 'x' => round((float) $validated['x'], 6),
@@ -125,12 +128,13 @@ class PageHotspotController extends Controller
     {
         $validated = $request->validated();
         $targetHotspotId = $this->parseTargetHotspotId($validated);
+        $targetPageNo = $this->parseTargetPageNo($validated, $targetHotspotId);
         $this->authorize('update', $hotspot);
 
-        DB::transaction(function () use ($hotspot, $validated, $targetHotspotId): void {
+        DB::transaction(function () use ($hotspot, $validated, $targetHotspotId, $targetPageNo): void {
             $hotspot->update([
                 'relation_kind' => $validated['relation_kind'],
-                'target_page_no' => (int) $validated['target_page_no'],
+                'target_page_no' => $targetPageNo,
                 'x' => round((float) $validated['x'], 6),
                 'y' => round((float) $validated['y'], 6),
                 'w' => round((float) $validated['w'], 6),
@@ -256,6 +260,33 @@ class PageHotspotController extends Controller
         }
 
         return (int) $value;
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function parseTargetPageNo(array $validated, ?int $targetHotspotId): ?int
+    {
+        $value = $validated['target_page_no'] ?? null;
+
+        if (is_numeric($value)) {
+            $pageNo = (int) $value;
+
+            if ($pageNo > 0) {
+                return $pageNo;
+            }
+        }
+
+        if ($targetHotspotId === null) {
+            return null;
+        }
+
+        $resolvedPageNo = PageHotspot::query()
+            ->whereKey($targetHotspotId)
+            ->join('pages', 'pages.id', '=', 'page_hotspots.page_id')
+            ->value('pages.page_no');
+
+        return is_numeric($resolvedPageNo) ? (int) $resolvedPageNo : null;
     }
 
     private function syncLinkedHotspot(PageHotspot $sourceHotspot, ?int $targetHotspotId): void

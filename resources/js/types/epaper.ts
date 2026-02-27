@@ -8,7 +8,7 @@ export interface Category {
 export interface Hotspot {
     id: number;
     relation_kind: 'next' | 'previous';
-    target_page_no: number;
+    target_page_no: number | null;
     x: number;
     y: number;
     w: number;
@@ -22,9 +22,9 @@ export interface Hotspot {
 
 export interface LinkedHotspotRef {
     id: number;
-    page_no: number;
+    page_no: number | null;
     relation_kind: 'next' | 'previous';
-    target_page_no: number;
+    target_page_no: number | null;
     x: number;
     y: number;
     w: number;

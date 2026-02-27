@@ -51,6 +51,14 @@ function hotspotUrl(hotspot: Hotspot): string {
     return `${baseUrl}?edition=${props.selectedEditionId}`;
 }
 
+function hotspotAriaLabel(hotspot: Hotspot): string {
+    if (hotspot.target_page_no === null) {
+        return 'Hotspot';
+    }
+
+    return `Hotspot to page ${hotspot.target_page_no}`;
+}
+
 function resetZoom(): void {
     panzoom.value?.reset();
 }
@@ -113,7 +121,7 @@ onBeforeUnmount(() => {
                         width: `${hotspot.w * 100}%`,
                         height: `${hotspot.h * 100}%`,
                     }"
-                    :aria-label="`Hotspot to page ${hotspot.target_page_no}`"
+                    :aria-label="hotspotAriaLabel(hotspot)"
                 />
             </div>
         </div>

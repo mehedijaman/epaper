@@ -3,10 +3,6 @@ import { Head } from '@inertiajs/vue3';
 import { Newspaper } from 'lucide-vue-next';
 import { computed, onBeforeUnmount, ref } from 'vue';
 import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-} from '@/components/ui/card';
 
 type HotspotDetail = {
     id: number;
@@ -51,6 +47,34 @@ const copyButtonLabel = computed(() => {
     }
 
     return 'Copy Link';
+});
+
+type PreviewItem = {
+    key: 'current' | 'target';
+    src: string;
+    alt: string;
+};
+
+const orderedPreviews = computed<PreviewItem[]>(() => {
+    const currentPreview: PreviewItem = {
+        key: 'current',
+        src: props.previewUrl,
+        alt: 'Hotspot preview',
+    };
+
+    if (props.targetHotspot === null || props.targetPreviewUrl === null) {
+        return [currentPreview];
+    }
+
+    const targetPreview: PreviewItem = {
+        key: 'target',
+        src: props.targetPreviewUrl,
+        alt: 'Target hotspot preview',
+    };
+
+    return props.hotspot.relation_kind === 'previous'
+        ? [targetPreview, currentPreview]
+        : [currentPreview, targetPreview];
 });
 
 async function copyLink(): Promise<void> {
@@ -135,8 +159,8 @@ function closeTab(): void {
         </header>
 
         <main class="mx-auto w-full max-w-4xl flex-1 px-4 py-6 sm:px-6 lg:py-8">
-            <div class="space-y-5">
-                <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div>
+                <div class="flex flex-wrap items-center justify-between gap-3  border-slate-200 bg-white p-4 shadow-sm">
                     <Button variant="outline" size="sm" type="button" @click="closeTab">
                         Close
                     </Button>
@@ -145,19 +169,13 @@ function closeTab(): void {
                     </Button>
                 </div>
 
-                <img
-                    :src="previewUrl"
-                    alt="Hotspot preview"
-                    class="mx-auto block h-auto w-full"
-                />
-
                 <div
-                    v-if="targetHotspot !== null && targetPreviewUrl !== null"
-                    class="space-y-2"
+                    v-for="preview in orderedPreviews"
+                    :key="preview.key"
                 >
                     <img
-                        :src="targetPreviewUrl"
-                        alt="Target hotspot preview"
+                        :src="preview.src"
+                        :alt="preview.alt"
                         class="mx-auto block h-auto w-full"
                     />
                 </div>

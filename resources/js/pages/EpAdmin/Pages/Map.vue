@@ -52,7 +52,7 @@ type EditionPageItem = {
 type TargetHotspotOption = {
     id: number;
     relation_kind: 'next' | 'previous';
-    target_page_no: number;
+    target_page_no: number | null;
     label: string | null;
 };
 
@@ -88,7 +88,7 @@ type BulkDeletePreset = 'manual' | 'mismatch' | 'unlinked';
 type HotspotForm = {
     page_id: number;
     relation_kind: 'next' | 'previous';
-    target_page_no: number;
+    target_page_no: number | null;
     target_hotspot_id: number | null;
     x: number;
     y: number;
@@ -151,7 +151,7 @@ const savingAreaHotspotId = ref<number | null>(null);
 const hotspotForm = useForm<HotspotForm>({
     page_id: 0,
     relation_kind: 'next',
-    target_page_no: 1,
+    target_page_no: null,
     target_hotspot_id: null,
     x: 0,
     y: 0,
@@ -170,7 +170,6 @@ const bulkDeleteForm = useForm<{
 
 const currentPage = computed(() => props.page);
 const currentHotspots = computed(() => currentPage.value?.hotspots ?? []);
-const currentPageNo = computed(() => currentPage.value?.page_no ?? 1);
 const hasPage = computed(() => currentPage.value !== null);
 const areaResizeHandles: AreaResizeHandle[] = [
     'nw',
@@ -221,6 +220,10 @@ const targetHotspotsByPage = computed<Map<number, TargetHotspotOption[]>>(
     },
 );
 const availableTargetHotspots = computed<TargetHotspotOption[]>(() => {
+    if (hotspotForm.target_page_no === null) {
+        return [];
+    }
+
     const options =
         targetHotspotsByPage.value.get(hotspotForm.target_page_no) ?? [];
 
@@ -229,6 +232,21 @@ const availableTargetHotspots = computed<TargetHotspotOption[]>(() => {
     }
 
     return options.filter((item) => item.id !== editingHotspotId.value);
+});
+const targetPageSelectValue = computed<string>({
+    get: () =>
+        hotspotForm.target_page_no === null
+            ? '__none'
+            : String(hotspotForm.target_page_no),
+    set: (value) => {
+        if (value === '__none') {
+            hotspotForm.target_page_no = null;
+            return;
+        }
+
+        const parsed = Number.parseInt(value, 10);
+        hotspotForm.target_page_no = Number.isFinite(parsed) ? parsed : null;
+    },
 });
 const targetHotspotSelectValue = computed<string>({
     get: () =>
@@ -282,7 +300,10 @@ const orderedHotspots = computed(() => {
                 return a.id - b.id;
             }
 
-            return a.target_page_no - b.target_page_no;
+            const leftTargetPageNo = a.target_page_no ?? Number.MAX_SAFE_INTEGER;
+            const rightTargetPageNo = b.target_page_no ?? Number.MAX_SAFE_INTEGER;
+
+            return leftTargetPageNo - rightTargetPageNo;
         });
     }
 
@@ -321,7 +342,7 @@ const filteredHotspots = computed(() => {
         return (
             String(hotspot.id).includes(query) ||
             hotspot.relation_kind.toLowerCase().includes(query) ||
-            String(hotspot.target_page_no).includes(query) ||
+            String(hotspot.target_page_no ?? 'none').includes(query) ||
             (linkId !== null && String(linkId).includes(query)) ||
             label.includes(query) ||
             hotspotLinkLabel(hotspotLinkState(hotspot))
@@ -1189,13 +1210,6 @@ function hotspotThumbnailImageStyle(hotspot: Hotspot): Record<string, string> {
     };
 }
 
-function defaultTargetPageNo(): number {
-    const numbers = targetPageNumbers.value;
-    const preferred = numbers.find((pageNo) => pageNo !== currentPageNo.value);
-
-    return preferred ?? numbers[0] ?? 1;
-}
-
 function pageNoForTargetHotspotId(hotspotId: number): number | null {
     for (const [pageNo, hotspots] of targetHotspotsByPage.value.entries()) {
         const exists = hotspots.some((item) => item.id === hotspotId);
@@ -1350,16 +1364,27 @@ function hotspotOverlayChipText(state: HotspotLinkState): string {
     return '';
 }
 
+function hotspotTargetPageLabel(targetPageNo: number | null): string {
+    if (targetPageNo === null) {
+        return 'No target page';
+    }
+
+    return `Page ${targetPageNo}`;
+}
+
 function hotspotOverlayTitle(hotspot: Hotspot): string {
     const state = hotspotLinkState(hotspot);
     const linkedId =
         hotspot.target_hotspot_id ?? hotspot.linked_hotspot_id ?? null;
+    const targetPageLabel = hotspot.target_page_no === null
+        ? 'No target page'
+        : `Target page ${hotspot.target_page_no}`;
 
     if (linkedId !== null) {
-        return `Target page ${hotspot.target_page_no} • ${hotspotLinkLabel(state)} (#${linkedId})`;
+        return `${targetPageLabel} • ${hotspotLinkLabel(state)} (#${linkedId})`;
     }
 
-    return `Target page ${hotspot.target_page_no} • ${hotspotLinkLabel(state)}`;
+    return `${targetPageLabel} • ${hotspotLinkLabel(state)}`;
 }
 
 function normalizedNumberForSnapshot(value: number): number {
@@ -1386,7 +1411,7 @@ function captureHotspotDialogBaseline(): void {
 function resetHotspotForm(): void {
     hotspotForm.page_id = currentPage.value?.id ?? 0;
     hotspotForm.relation_kind = 'next';
-    hotspotForm.target_page_no = defaultTargetPageNo();
+    hotspotForm.target_page_no = null;
     hotspotForm.target_hotspot_id = null;
     hotspotForm.x = 0;
     hotspotForm.y = 0;
@@ -1428,7 +1453,7 @@ function openEditDialog(hotspot: Hotspot): void {
     editingHotspotId.value = hotspot.id;
     activeHotspotId.value = hotspot.id;
     hotspotForm.relation_kind = hotspot.relation_kind;
-    hotspotForm.target_page_no = hotspot.target_page_no;
+    hotspotForm.target_page_no = hotspot.target_page_no ?? null;
 
     const connectedHotspotId =
         hotspot.target_hotspot_id ?? hotspot.linked_hotspot_id ?? null;
@@ -1571,7 +1596,8 @@ function saveHotspot(): void {
 
     const transformedForm = hotspotForm.transform((data) => ({
         ...data,
-        target_hotspot_id: data.target_hotspot_id,
+        target_hotspot_id:
+            data.target_page_no === null ? null : data.target_hotspot_id,
         label: data.label.trim() === '' ? null : data.label.trim(),
     }));
 
@@ -2430,6 +2456,11 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                                                 @touchstart.stop
                                                 @click.stop
                                             >
+                                                <span
+                                                    class="px-1 text-[10px] font-semibold text-muted-foreground"
+                                                >
+                                                    #{{ hotspot.id }}
+                                                </span>
                                                 <Button
                                                     size="icon-sm"
                                                     variant="ghost"
@@ -2928,8 +2959,11 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                                             </div>
                                             <p class="text-muted-foreground">
                                                 {{ hotspot.relation_kind }} →
-                                                page
-                                                {{ hotspot.target_page_no }}
+                                                {{
+                                                    hotspotTargetPageLabel(
+                                                        hotspot.target_page_no,
+                                                    )
+                                                }}
                                             </p>
                                             <p
                                                 v-if="
@@ -3077,8 +3111,8 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                     <DialogHeader>
                         <DialogTitle>{{ hotspotDialogTitle }}</DialogTitle>
                         <DialogDescription>
-                            Configure relation, target page, and optionally a
-                            specific target hotspot.
+                            Configure relation and optional target references.
+                            Target page and target hotspot can both be empty.
                         </DialogDescription>
                     </DialogHeader>
                     <p
@@ -3129,18 +3163,21 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                                         >Target page</label
                                     >
                                     <Select
-                                        v-model="hotspotForm.target_page_no"
+                                        v-model="targetPageSelectValue"
                                     >
                                         <SelectTrigger>
                                             <SelectValue
-                                                placeholder="Select target page"
+                                                placeholder="No target page"
                                             />
                                         </SelectTrigger>
                                         <SelectContent>
+                                            <SelectItem value="__none">
+                                                No target page
+                                            </SelectItem>
                                             <SelectItem
                                                 v-for="pageNo in targetPageNumbers"
                                                 :key="pageNo"
-                                                :value="pageNo"
+                                                :value="String(pageNo)"
                                             >
                                                 Page {{ pageNo }}
                                             </SelectItem>
@@ -3157,10 +3194,17 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                                 <label class="text-sm font-medium"
                                     >Target hotspot (optional)</label
                                 >
-                                <Select v-model="targetHotspotSelectValue">
+                                <Select
+                                    v-model="targetHotspotSelectValue"
+                                    :disabled="hotspotForm.target_page_no === null"
+                                >
                                     <SelectTrigger>
                                         <SelectValue
-                                            placeholder="Any hotspot on target page"
+                                            :placeholder="
+                                                hotspotForm.target_page_no === null
+                                                    ? 'Select target page first'
+                                                    : 'Any hotspot on target page'
+                                            "
                                         />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -3184,7 +3228,9 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                                                 }}
                                                 →
                                                 {{
-                                                    targetHotspot.target_page_no
+                                                    hotspotTargetPageLabel(
+                                                        targetHotspot.target_page_no,
+                                                    )
                                                 }})
                                             </span>
                                         </SelectItem>

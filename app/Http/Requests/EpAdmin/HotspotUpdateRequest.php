@@ -24,7 +24,7 @@ class HotspotUpdateRequest extends FormRequest
     {
         return [
             'relation_kind' => ['required', 'in:next,previous'],
-            'target_page_no' => ['required', 'integer', 'min:1'],
+            'target_page_no' => ['nullable', 'integer', 'min:1'],
             'target_hotspot_id' => ['nullable', 'integer', 'exists:page_hotspots,id'],
             'x' => ['required', 'numeric', 'between:0,1'],
             'y' => ['required', 'numeric', 'between:0,1'],
@@ -58,9 +58,15 @@ class HotspotUpdateRequest extends FormRequest
                 ->where('edition_id', $editionId)
                 ->max('page_no');
 
-            $targetPageNo = (int) $this->input('target_page_no');
+            $targetPageNoInput = $this->input('target_page_no');
+            $targetPageNo = is_numeric($targetPageNoInput)
+                ? (int) $targetPageNoInput
+                : null;
 
-            if ($targetPageNo < 1 || $targetPageNo > $maxPageNo) {
+            if (
+                $targetPageNo !== null &&
+                ($targetPageNo < 1 || $targetPageNo > $maxPageNo)
+            ) {
                 $validator->errors()->add(
                     'target_page_no',
                     sprintf('Target page must be between 1 and %d for this edition.', max($maxPageNo, 1)),
@@ -114,7 +120,10 @@ class HotspotUpdateRequest extends FormRequest
                 return;
             }
 
-            if ((int) $targetHotspot->page->page_no !== $targetPageNo) {
+            if (
+                $targetPageNo !== null &&
+                (int) $targetHotspot->page->page_no !== $targetPageNo
+            ) {
                 $validator->errors()->add(
                     'target_hotspot_id',
                     sprintf('Selected hotspot must belong to target page %d.', $targetPageNo),
