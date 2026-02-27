@@ -791,7 +791,7 @@ onBeforeUnmount(() => {
 
         <footer class="border-t border-slate-200 bg-white py-4">
             <div
-                class="mx-auto flex max-w-7xl flex-col gap-4 px-4 text-xs text-slate-600 sm:flex-row sm:items-end sm:justify-between sm:text-sm"
+                class="mx-auto flex max-w-7xl flex-col gap-6 px-4 text-xs text-slate-600 sm:flex-row sm:items-end sm:justify-between sm:text-sm"
             >
                 <div class="space-y-2 text-center sm:text-left">
                     <img
@@ -812,7 +812,7 @@ onBeforeUnmount(() => {
                 </div>
 
                 <div
-                    class="max-w-lg space-y-1 text-center text-slate-500 sm:text-right"
+                    class="max-w-4xl space-y-1 text-center text-slate-500 sm:text-right"
                 >
                     <p>{{ settings.footer_editor_info }}</p>
                     <p>{{ settings.footer_contact_info }}</p>
