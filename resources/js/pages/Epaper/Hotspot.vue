@@ -145,26 +145,22 @@ function closeTab(): void {
                     </Button>
                 </div>
 
-                <Card class="border-slate-200 shadow-sm">
-                    <CardContent class="space-y-5">
-                        <img
-                            :src="previewUrl"
-                            alt="Hotspot preview"
-                            class="mx-auto block h-auto w-full object-contain"
-                        />
+                <img
+                    :src="previewUrl"
+                    alt="Hotspot preview"
+                    class="mx-auto block h-auto w-full"
+                />
 
-                        <div
-                            v-if="targetHotspot !== null && targetPreviewUrl !== null"
-                            class="space-y-2"
-                        >
-                            <img
-                                :src="targetPreviewUrl"
-                                alt="Target hotspot preview"
-                                class="mx-auto block h-auto w-full object-contain"
-                            />
-                        </div>
-                    </CardContent>
-                </Card>
+                <div
+                    v-if="targetHotspot !== null && targetPreviewUrl !== null"
+                    class="space-y-2"
+                >
+                    <img
+                        :src="targetPreviewUrl"
+                        alt="Target hotspot preview"
+                        class="mx-auto block h-auto w-full"
+                    />
+                </div>
             </div>
         </main>
 
