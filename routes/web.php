@@ -10,6 +10,7 @@ use App\Http\Controllers\EpAdmin\PageHotspotController;
 use App\Http\Controllers\EpAdmin\SiteSettingController;
 use App\Http\Controllers\EpAdmin\UserAclController;
 use App\Http\Controllers\PublicEpaperController;
+use App\Http\Controllers\PublicEpaperHotspotController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
@@ -34,6 +35,21 @@ Route::get('/epaper/{date}/page/{pageNo}', [PublicEpaperController::class, 'view
     ->where('date', '\\d{4}-\\d{2}-\\d{2}')
     ->whereNumber('pageNo')
     ->name('epaper.viewer');
+Route::get('/epaper/{date}/page/{pageNo}/hotspot/{hotspotId}', [PublicEpaperHotspotController::class, 'show'])
+    ->where('date', '\\d{4}-\\d{2}-\\d{2}')
+    ->whereNumber('pageNo')
+    ->whereNumber('hotspotId')
+    ->name('epaper.hotspot.show');
+Route::get('/epaper/{date}/page/{pageNo}/hotspot/{hotspotId}/preview', [PublicEpaperHotspotController::class, 'preview'])
+    ->where('date', '\\d{4}-\\d{2}-\\d{2}')
+    ->whereNumber('pageNo')
+    ->whereNumber('hotspotId')
+    ->name('epaper.hotspot.preview');
+Route::get('/epaper/{date}/page/{pageNo}/hotspot/{hotspotId}/target-preview', [PublicEpaperHotspotController::class, 'targetPreview'])
+    ->where('date', '\\d{4}-\\d{2}-\\d{2}')
+    ->whereNumber('pageNo')
+    ->whereNumber('hotspotId')
+    ->name('epaper.hotspot.target-preview');
 
 Route::middleware(['auth'])->prefix('admin')->name('epadmin.')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');

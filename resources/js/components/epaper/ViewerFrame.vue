@@ -14,12 +14,15 @@ import type { Hotspot, Page } from '@/types';
 const props = withDefaults(
     defineProps<{
         page: Page;
+        editionDate: string;
+        selectedEditionId?: number | null;
         totalPages: number;
         prevPageNo: number | null;
         nextPageNo: number | null;
         enablePanzoom?: boolean;
     }>(),
     {
+        selectedEditionId: null,
         enablePanzoom: true,
     },
 );
@@ -27,9 +30,6 @@ const props = withDefaults(
 const emit = defineEmits<{
     previous: [];
     next: [];
-    hotspotClick: [
-        payload: { hotspot: Hotspot; image: HTMLImageElement | null },
-    ];
 }>();
 
 const viewportRef = ref<HTMLDivElement | null>(null);
@@ -37,15 +37,18 @@ const stageRef = ref<HTMLDivElement | null>(null);
 const imageRef = ref<HTMLImageElement | null>(null);
 const panzoom = ref<PanzoomObject | null>(null);
 
-function onHotspotClick(hotspot: Hotspot): void {
-    emit('hotspotClick', {
-        hotspot,
-        image: imageRef.value,
-    });
-}
-
 function imageUrlForPage(page: Page): string {
     return page.image_large_url || page.image_original_url;
+}
+
+function hotspotUrl(hotspot: Hotspot): string {
+    const baseUrl = `/epaper/${props.editionDate}/page/${props.page.page_no}/hotspot/${hotspot.id}`;
+
+    if (props.selectedEditionId === null || props.selectedEditionId <= 0) {
+        return baseUrl;
+    }
+
+    return `${baseUrl}?edition=${props.selectedEditionId}`;
 }
 
 function resetZoom(): void {
@@ -97,11 +100,13 @@ onBeforeUnmount(() => {
                     class="block h-auto w-full object-contain"
                 />
 
-                <button
+                <a
                     v-for="hotspot in page.hotspots"
                     :key="hotspot.id"
-                    type="button"
-                    class="hotspot-overlay absolute z-20 rounded-sm border border-transparent bg-transparent transition-all duration-150 focus-visible:ring-2 focus-visible:ring-sky-400/80 focus-visible:outline-none"
+                    :href="hotspotUrl(hotspot)"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="hotspot-overlay absolute z-20 block rounded-sm border border-transparent bg-transparent transition-all duration-150 focus-visible:ring-2 focus-visible:ring-sky-400/80 focus-visible:outline-none"
                     :style="{
                         left: `${hotspot.x * 100}%`,
                         top: `${hotspot.y * 100}%`,
@@ -109,7 +114,6 @@ onBeforeUnmount(() => {
                         height: `${hotspot.h * 100}%`,
                     }"
                     :aria-label="`Hotspot to page ${hotspot.target_page_no}`"
-                    @click="onHotspotClick(hotspot)"
                 />
             </div>
         </div>
