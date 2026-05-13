@@ -595,19 +595,21 @@ onBeforeUnmount(() => {
             <div
                 class="mx-auto flex max-w-7xl items-center justify-center px-4 py-3"
             >
-                <img
-                    v-if="logoUrl"
-                    :src="logoUrl"
-                    alt="Newspaper logo"
-                    class="h-10 w-auto object-contain sm:h-12"
-                />
-                <div v-else class="inline-flex items-center gap-2">
-                    <Newspaper class="size-5 text-slate-700" />
-                    <span
-                        class="text-lg font-bold tracking-tight text-slate-900"
-                        >ePaper</span
-                    >
-                </div>
+                <a href="/">
+                    <img
+                        v-if="logoUrl"
+                        :src="logoUrl"
+                        alt="Newspaper logo"
+                        class="h-10 w-auto object-contain sm:h-12"
+                    />
+                    <div v-else class="inline-flex items-center gap-2">
+                        <Newspaper class="size-5 text-slate-700" />
+                        <span
+                            class="text-lg font-bold tracking-tight text-slate-900"
+                            >ePaper</span
+                        >
+                    </div>
+                </a>
             </div>
         </header>
 
@@ -852,18 +854,20 @@ onBeforeUnmount(() => {
                 class="mx-auto flex max-w-7xl flex-col gap-6 px-4 text-xs text-slate-600 sm:flex-row sm:items-end sm:justify-between sm:text-sm"
             >
                 <div class="space-y-2 text-center sm:text-left">
-                    <img
-                        v-if="logoUrl"
-                        :src="logoUrl"
-                        alt="Newspaper logo"
-                        class="mx-auto h-10 w-auto object-contain sm:mx-0 sm:h-12"
-                    />
-                    <div v-else class="inline-flex items-center gap-2">
-                        <Newspaper class="size-4 text-slate-500" />
-                        <span class="text-sm font-semibold text-slate-700"
-                            >ePaper</span
-                        >
-                    </div>
+                    <a href="/">
+                        <img
+                            v-if="logoUrl"
+                            :src="logoUrl"
+                            alt="Newspaper logo"
+                            class="mx-auto h-10 w-auto object-contain sm:mx-0 sm:h-12"
+                        />
+                        <div v-else class="inline-flex items-center gap-2">
+                            <Newspaper class="size-4 text-slate-500" />
+                            <span class="text-sm font-semibold text-slate-700"
+                                >ePaper</span
+                            >
+                        </div>
+                    </a>
                     <p class="text-slate-500">
                         {{ settings.footer_copyright }}
                     </p>
