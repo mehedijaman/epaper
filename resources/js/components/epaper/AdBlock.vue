@@ -53,7 +53,10 @@ function sanitizeEmbedCode(embedCode: string): string {
 </script>
 
 <template>
-    <div class="rounded-lg border border-border/70 bg-card p-2">
+    <div
+        v-if="ad.type === 'image' ? !!ad.image_url : !!sanitizedEmbedCode"
+        class="overflow-hidden rounded-lg border border-border/50 bg-card"
+    >
         <a
             v-if="ad.type === 'image' && ad.image_url"
             :href="ad.click_url || '#'"
@@ -61,15 +64,18 @@ function sanitizeEmbedCode(embedCode: string): string {
             rel="noopener noreferrer"
             class="block"
         >
-            <img :src="ad.image_url" alt="Advertisement" class="h-auto w-full rounded object-cover" loading="lazy" />
+            <img
+                :src="ad.image_url"
+                alt="Advertisement"
+                class="h-auto w-full object-cover transition-opacity hover:opacity-90"
+                loading="lazy"
+            />
         </a>
 
         <div
             v-else-if="ad.type === 'embed' && sanitizedEmbedCode"
-            class="prose max-w-none"
+            class="overflow-hidden p-2 [&>*]:max-w-full"
             v-html="sanitizedEmbedCode"
         />
-
-        <p v-else class="text-xs text-muted-foreground">Ad content unavailable.</p>
     </div>
 </template>

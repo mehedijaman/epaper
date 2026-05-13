@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import AdBlock from '@/components/epaper/AdBlock.vue';
 import { Badge } from '@/components/ui/badge';
 import {
     Card,
@@ -27,12 +28,30 @@ const editionLabel = computed(() => {
 
     return `Edition ${props.edition.id}`;
 });
+
+function adsForSlot(slotNo: number): Ad[] {
+    return props.adsBySlot[String(slotNo)] ?? [];
+}
 </script>
 
 <template>
     <Head :title="`${editionLabel} - ${edition.edition_date}`" />
 
     <div class="min-h-screen bg-slate-100/70">
+        <!-- Slot 1: Top Banner -->
+        <div
+            v-if="adsForSlot(1).length > 0"
+            class="bg-white border-b border-border/60"
+        >
+            <div class="mx-auto max-w-7xl space-y-2 px-4 py-2 sm:px-6">
+                <AdBlock
+                    v-for="ad in adsForSlot(1)"
+                    :key="ad.id"
+                    :ad="ad"
+                />
+            </div>
+        </div>
+
         <div class="mx-auto w-full max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:py-8">
             <section class="rounded-xl border border-border/70 bg-background p-4 shadow-sm sm:p-6">
                 <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -91,6 +110,20 @@ const editionLabel = computed(() => {
                     </div>
                 </CardContent>
             </Card>
+        </div>
+
+        <!-- Slot 6: Footer Banner -->
+        <div
+            v-if="adsForSlot(6).length > 0"
+            class="border-t border-border/60 bg-slate-50 py-3"
+        >
+            <div class="mx-auto max-w-7xl space-y-2 px-4 sm:px-6">
+                <AdBlock
+                    v-for="ad in adsForSlot(6)"
+                    :key="ad.id"
+                    :ad="ad"
+                />
+            </div>
         </div>
 
         <footer class="border-t bg-background py-6">

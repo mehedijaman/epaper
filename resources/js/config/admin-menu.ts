@@ -1,12 +1,12 @@
 import {
-    BookOpen,
     LayoutGrid,
     Link2,
     Newspaper,
     Settings,
-    ShieldCheck,
     Tag,
+    Tv2,
     Upload,
+    Users,
 } from 'lucide-vue-next';
 import type { NavItem, NavSection } from '@/types';
 
@@ -73,7 +73,7 @@ export const EPADMIN_MENU_SECTIONS: EpAdminMenuSection[] = [
             {
                 title: 'Ads',
                 href: '/admin/ads',
-                icon: BookOpen,
+                icon: Tv2,
                 activeStartsWith: ['/admin/ads'],
                 requiredAbility: 'ads_manage',
             },
@@ -85,9 +85,9 @@ export const EPADMIN_MENU_SECTIONS: EpAdminMenuSection[] = [
                 requiredAbility: 'settings_manage',
             },
             {
-                title: 'ACL',
+                title: 'Users & Roles',
                 href: '/admin/users',
-                icon: ShieldCheck,
+                icon: Users,
                 activeStartsWith: ['/admin/users'],
                 requiredAbility: 'users_manage',
             },

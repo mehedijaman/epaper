@@ -128,7 +128,7 @@ class EpaperData
             'id' => $ad->id,
             'ad_slot_id' => $ad->ad_slot_id,
             'slot_no' => $ad->adSlot?->slot_no,
-            'slot_name' => $ad->adSlot?->name,
+            'slot_name' => $ad->adSlot?->title,
             'type' => $ad->type,
             'image_url' => $ad->image_url,
             'click_url' => $ad->click_url,

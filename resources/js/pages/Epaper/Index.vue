@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import PublicViewerShell from '@/components/epaper/PublicViewerShell.vue';
 import type {
+    Ad,
     Edition,
     Page,
     ViewerCategoryItem,
@@ -19,6 +20,7 @@ const props = defineProps<{
     categories: ViewerCategoryItem[];
     available_dates: string[];
     logo_url: string | null;
+    adsBySlot: Record<string, Ad[]>;
     settings: {
         footer_editor_info: string;
         footer_contact_info: string;
@@ -81,5 +83,6 @@ const editionDate = computed<string | null>(() => {
         :available-dates="available_dates"
         :logo-url="logo_url"
         :settings="settings"
+        :ads-by-slot="adsBySlot"
     />
 </template>

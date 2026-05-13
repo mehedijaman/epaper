@@ -17,6 +17,7 @@ import {
     ref,
     watch,
 } from 'vue';
+import AdBlock from '@/components/epaper/AdBlock.vue';
 import ThumbnailRail from '@/components/epaper/ThumbnailRail.vue';
 import ViewerFrame from '@/components/epaper/ViewerFrame.vue';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -310,6 +311,10 @@ watch(
 
 function editionDisplayLabel(edition: ViewerEditionItem): string {
     return edition.name?.trim() || edition.edition_date;
+}
+
+function adsForSlot(slotNo: number): Ad[] {
+    return props.adsBySlot?.[String(slotNo)] ?? [];
 }
 
 function viewerUrl(date: string, pageNo: number, editionId?: number | null): string {
@@ -740,6 +745,19 @@ onBeforeUnmount(() => {
                     </p>
                 </div>
 
+                <!-- Slot 1: Top Banner -->
+                <div
+                    v-if="adsForSlot(1).length > 0"
+                    class="border-b border-slate-200 px-3 py-2"
+                >
+                    <AdBlock
+                        v-for="ad in adsForSlot(1)"
+                        :key="ad.id"
+                        :ad="ad"
+                        class="rounded-lg"
+                    />
+                </div>
+
                 <div
                     v-if="hasPageData && page"
                     class="grid items-stretch lg:grid-cols-[140px_minmax(0,1fr)]"
@@ -757,7 +775,10 @@ onBeforeUnmount(() => {
                         ref="viewerSectionRef"
                         class="min-w-0 bg-slate-50 p-2 sm:p-3"
                     >
-                        <div class="mx-auto max-w-5xl">
+                        <div
+                            class="mx-auto max-w-5xl"
+                            :class="adsForSlot(3).length > 0 ? 'xl:grid xl:grid-cols-[minmax(0,1fr)_200px] xl:gap-3' : ''"
+                        >
                             <ViewerFrame
                                 :page="page"
                                 :edition-date="frameEditionDate"
@@ -776,6 +797,29 @@ onBeforeUnmount(() => {
                                         : null
                                 "
                             />
+                            <!-- Slot 3: Sidebar Right -->
+                            <aside
+                                v-if="adsForSlot(3).length > 0"
+                                class="hidden xl:flex xl:flex-col xl:gap-2"
+                            >
+                                <AdBlock
+                                    v-for="ad in adsForSlot(3)"
+                                    :key="ad.id"
+                                    :ad="ad"
+                                />
+                            </aside>
+                        </div>
+
+                        <!-- Slot 5: Between-content banner -->
+                        <div
+                            v-if="adsForSlot(5).length > 0"
+                            class="mx-auto mt-3 max-w-5xl space-y-2"
+                        >
+                            <AdBlock
+                                v-for="ad in adsForSlot(5)"
+                                :key="ad.id"
+                                :ad="ad"
+                            />
                         </div>
                     </section>
                 </div>
@@ -788,6 +832,20 @@ onBeforeUnmount(() => {
                 </div>
             </div>
         </main>
+
+        <!-- Slot 6: Footer Banner -->
+        <div
+            v-if="adsForSlot(6).length > 0"
+            class="border-t border-slate-200 bg-slate-50 py-3"
+        >
+            <div class="mx-auto max-w-7xl space-y-2 px-4">
+                <AdBlock
+                    v-for="ad in adsForSlot(6)"
+                    :key="ad.id"
+                    :ad="ad"
+                />
+            </div>
+        </div>
 
         <footer class="border-t border-slate-200 bg-white py-4">
             <div

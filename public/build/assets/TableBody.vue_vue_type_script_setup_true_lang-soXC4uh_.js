@@ -1,0 +1,1 @@
+import{d as o,o as t,c as r,H as l,u as n,I as c,r as d}from"./app-BZiI1CLI.js";const u=o({__name:"TableBody",props:{class:{type:[Boolean,null,String,Object,Array]}},setup(s){const a=s;return(e,p)=>(t(),r("tbody",{"data-slot":"table-body",class:l(n(c)("[&_tr:last-child]:border-0",a.class))},[d(e.$slots,"default")],2))}});export{u as _};

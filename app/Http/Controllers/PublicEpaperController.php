@@ -88,6 +88,7 @@ class PublicEpaperController extends Controller
             'available_dates' => $this->availableDatesPayload(),
             'categories' => $this->categoriesPayload(),
             'logo_url' => $logoUrl,
+            'adsBySlot' => $this->adsBySlot(),
             'settings' => [
                 SiteSetting::FOOTER_EDITOR_INFO => $rawSettings[SiteSetting::FOOTER_EDITOR_INFO] ?? '',
                 SiteSetting::FOOTER_CONTACT_INFO => $rawSettings[SiteSetting::FOOTER_CONTACT_INFO] ?? '',

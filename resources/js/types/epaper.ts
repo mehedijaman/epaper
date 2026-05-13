@@ -99,5 +99,5 @@ export interface Ad {
 export interface AdSlot {
     id: number;
     slot_no: number;
-    name: string;
+    title: string;
 }
