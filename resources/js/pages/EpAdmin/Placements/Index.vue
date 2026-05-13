@@ -60,6 +60,17 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Ads', href: '/admin/ads' },
 ];
 
+const slotPositionLabels: Record<number, string> = {
+    1: 'Top Banner',
+    2: 'Sidebar Left',
+    3: 'Sidebar Right',
+    4: 'Between Pages',
+    5: 'Mid-content Banner',
+    6: 'Footer Banner',
+    7: 'Popup',
+    8: 'Extra Slot',
+};
+
 const savingSlotNo = ref<number | null>(null);
 const errorSlotNo = ref<number | null>(null);
 const slotForms = ref<SlotFormState[]>(props.slots.map(mapSlotToState));
@@ -87,6 +98,7 @@ watch(
     (value) => {
         slotForms.value = value.map(mapSlotToState);
     },
+    { deep: true },
 );
 
 function mapSlotToState(slot: SlotItem): SlotFormState {
@@ -156,14 +168,6 @@ function saveSlot(slot: SlotFormState): void {
     });
 }
 
-function updateIsActive(slot: SlotFormState, checked: boolean | 'indeterminate'): void {
-    slot.is_active = checked === true;
-}
-
-function onActiveToggle(slot: SlotFormState, checked: boolean | 'indeterminate'): void {
-    updateIsActive(slot, checked);
-}
-
 function fieldError(field: keyof typeof form.errors, slotNo: number): string | undefined {
     if (errorSlotNo.value !== slotNo) {
         return undefined;
@@ -206,14 +210,16 @@ function isSavingSlot(slotNo: number): boolean {
                 <Card v-for="slot in slotForms" :key="slot.slot_no" class="border-border/70 shadow-sm">
                     <CardHeader class="pb-3">
                         <div class="flex flex-wrap items-center justify-between gap-2">
-                            <CardTitle class="text-base">Slot {{ slot.slot_no }}</CardTitle>
+                            <div>
+                                <CardTitle class="text-base">Slot {{ slot.slot_no }}</CardTitle>
+                                <p class="text-xs text-muted-foreground">
+                                    {{ slotPositionLabels[slot.slot_no] ?? slot.title ?? `Slot ${slot.slot_no}` }}
+                                </p>
+                            </div>
                             <Badge :variant="slot.is_active ? 'default' : 'secondary'">
                                 {{ slot.is_active ? 'Active' : 'Inactive' }}
                             </Badge>
                         </div>
-                        <p v-if="slot.title" class="text-xs text-muted-foreground">
-                            {{ slot.title }}
-                        </p>
                     </CardHeader>
                     <CardContent class="space-y-4">
                         <div class="space-y-2">
@@ -283,8 +289,7 @@ function isSavingSlot(slotNo: number): boolean {
                             </div>
                             <div class="flex items-center gap-2">
                                 <Checkbox
-                                    :checked="slot.is_active"
-                                    @update:checked="onActiveToggle(slot, $event)"
+                                    v-model="slot.is_active"
                                 />
                                 <span class="text-sm">{{ slot.is_active ? 'Active' : 'Inactive' }}</span>
                             </div>
