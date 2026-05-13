@@ -45,17 +45,17 @@ export const EPADMIN_MENU_SECTIONS: EpAdminMenuSection[] = [
                 href: '/admin/editions/manage',
                 icon: Upload,
                 requiredAbility: 'editions_manage',
+            },            
+            {
+                title: 'Mapping',
+                href: '/admin/hotspots',
+                icon: Link2,
+                requiredAbility: 'editions_manage',
             },
             {
                 title: 'Publish',
                 href: '/admin/editions/publish',
                 icon: Newspaper,
-                requiredAbility: 'editions_manage',
-            },
-            {
-                title: 'Mapping',
-                href: '/admin/hotspots',
-                icon: Link2,
                 requiredAbility: 'editions_manage',
             },
         ],
