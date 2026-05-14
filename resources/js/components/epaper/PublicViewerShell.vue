@@ -868,16 +868,23 @@ onBeforeUnmount(() => {
                             >
                         </div>
                     </a>
-                    <p class="text-slate-500">
-                        {{ settings.footer_copyright }}
-                    </p>
+                    <div
+                        class="prose prose-xs max-w-none text-slate-500 [&_a]:underline [&_a:hover]:text-slate-700"
+                        v-html="settings.footer_copyright"
+                    />
                 </div>
 
-                <div
-                    class="max-w-4xl space-y-1 text-center text-slate-500 sm:text-right"
-                >
-                    <p>{{ settings.footer_editor_info }}</p>
-                    <p>{{ settings.footer_contact_info }}</p>
+                <div class="max-w-4xl space-y-3 text-center text-slate-500 sm:text-right">
+                    <div
+                        v-if="settings.footer_editor_info"
+                        class="prose prose-xs max-w-none text-slate-500 sm:[&_*]:text-right [&_a]:underline [&_a:hover]:text-slate-700"
+                        v-html="settings.footer_editor_info"
+                    />
+                    <div
+                        v-if="settings.footer_contact_info"
+                        class="prose prose-xs max-w-none text-slate-500 sm:[&_*]:text-right [&_a]:underline [&_a:hover]:text-slate-700"
+                        v-html="settings.footer_contact_info"
+                    />
                 </div>
             </div>
         </footer>

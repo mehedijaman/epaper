@@ -10,6 +10,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import TipTapEditor from '@/components/TipTapEditor.vue';
 import EpAdminLayout from '@/layouts/EpAdminLayout.vue';
 import type { BreadcrumbItem } from '@/types';
 
@@ -565,10 +566,8 @@ function removeSavedFavicon(): void {
                     <CardContent class="space-y-5">
                         <div class="space-y-2">
                             <label class="text-sm font-medium">Editor Info</label>
-                            <textarea
+                            <TipTapEditor
                                 v-model="form.footer_editor_info"
-                                rows="4"
-                                class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-none"
                                 placeholder="Editorial information shown in the public footer"
                             />
                             <InputError :message="form.errors.footer_editor_info" />
@@ -576,10 +575,8 @@ function removeSavedFavicon(): void {
 
                         <div class="space-y-2">
                             <label class="text-sm font-medium">Contact Info</label>
-                            <textarea
+                            <TipTapEditor
                                 v-model="form.footer_contact_info"
-                                rows="4"
-                                class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-none"
                                 placeholder="Contact addresses, phone, email, website"
                             />
                             <InputError :message="form.errors.footer_contact_info" />
@@ -587,7 +584,7 @@ function removeSavedFavicon(): void {
 
                         <div class="space-y-2">
                             <label class="text-sm font-medium">Copyright</label>
-                            <Input
+                            <TipTapEditor
                                 v-model="form.footer_copyright"
                                 placeholder="e.g. Copyright The Daily Newspaper ©2026"
                             />
