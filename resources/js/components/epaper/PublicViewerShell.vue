@@ -313,8 +313,8 @@ function editionDisplayLabel(edition: ViewerEditionItem): string {
     return edition.name?.trim() || edition.edition_date;
 }
 
-function adsForSlot(slotNo: number): Ad[] {
-    return props.adsBySlot?.[String(slotNo)] ?? [];
+function adsForPosition(title: string): Ad[] {
+    return props.adsBySlot?.[title] ?? [];
 }
 
 function viewerUrl(date: string, pageNo: number, editionId?: number | null): string {
@@ -747,13 +747,13 @@ onBeforeUnmount(() => {
                     </p>
                 </div>
 
-                <!-- Slot 1: Top Banner -->
+                <!-- Top Banner -->
                 <div
-                    v-if="adsForSlot(1).length > 0"
+                    v-if="adsForPosition('Top Banner').length > 0"
                     class="border-b border-slate-200 px-3 py-2"
                 >
                     <AdBlock
-                        v-for="ad in adsForSlot(1)"
+                        v-for="ad in adsForPosition('Top Banner')"
                         :key="ad.id"
                         :ad="ad"
                         class="rounded-lg"
@@ -779,7 +779,7 @@ onBeforeUnmount(() => {
                     >
                         <div
                             class="mx-auto max-w-5xl"
-                            :class="adsForSlot(3).length > 0 ? 'xl:grid xl:grid-cols-[minmax(0,1fr)_200px] xl:gap-3' : ''"
+                            :class="adsForPosition('Sidebar Right').length > 0 ? 'xl:grid xl:grid-cols-[minmax(0,1fr)_200px] xl:gap-3' : ''"
                         >
                             <ViewerFrame
                                 :page="page"
@@ -799,26 +799,26 @@ onBeforeUnmount(() => {
                                         : null
                                 "
                             />
-                            <!-- Slot 3: Sidebar Right -->
+                            <!-- Sidebar Right -->
                             <aside
-                                v-if="adsForSlot(3).length > 0"
+                                v-if="adsForPosition('Sidebar Right').length > 0"
                                 class="hidden xl:flex xl:flex-col xl:gap-2"
                             >
                                 <AdBlock
-                                    v-for="ad in adsForSlot(3)"
+                                    v-for="ad in adsForPosition('Sidebar Right')"
                                     :key="ad.id"
                                     :ad="ad"
                                 />
                             </aside>
                         </div>
 
-                        <!-- Slot 5: Between-content banner -->
+                        <!-- Between-content banner (Sidebar Left on small screens) -->
                         <div
-                            v-if="adsForSlot(5).length > 0"
+                            v-if="adsForPosition('Sidebar Left').length > 0"
                             class="mx-auto mt-3 max-w-5xl space-y-2"
                         >
                             <AdBlock
-                                v-for="ad in adsForSlot(5)"
+                                v-for="ad in adsForPosition('Sidebar Left')"
                                 :key="ad.id"
                                 :ad="ad"
                             />
@@ -835,14 +835,14 @@ onBeforeUnmount(() => {
             </div>
         </main>
 
-        <!-- Slot 6: Footer Banner -->
+        <!-- Footer Banner -->
         <div
-            v-if="adsForSlot(6).length > 0"
+            v-if="adsForPosition('Footer Banner').length > 0"
             class="border-t border-slate-200 bg-slate-50 py-3"
         >
             <div class="mx-auto max-w-7xl space-y-2 px-4">
                 <AdBlock
-                    v-for="ad in adsForSlot(6)"
+                    v-for="ad in adsForPosition('Footer Banner')"
                     :key="ad.id"
                     :ad="ad"
                 />

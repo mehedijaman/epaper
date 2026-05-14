@@ -29,8 +29,8 @@ const editionLabel = computed(() => {
     return `Edition ${props.edition.id}`;
 });
 
-function adsForSlot(slotNo: number): Ad[] {
-    return props.adsBySlot[String(slotNo)] ?? [];
+function adsForPosition(title: string): Ad[] {
+    return props.adsBySlot[title] ?? [];
 }
 </script>
 
@@ -38,14 +38,14 @@ function adsForSlot(slotNo: number): Ad[] {
     <Head :title="`${editionLabel} - ${edition.edition_date}`" />
 
     <div class="min-h-screen bg-slate-100/70">
-        <!-- Slot 1: Top Banner -->
+        <!-- Top Banner -->
         <div
-            v-if="adsForSlot(1).length > 0"
+            v-if="adsForPosition('Top Banner').length > 0"
             class="bg-white border-b border-border/60"
         >
             <div class="mx-auto max-w-7xl space-y-2 px-4 py-2 sm:px-6">
                 <AdBlock
-                    v-for="ad in adsForSlot(1)"
+                    v-for="ad in adsForPosition('Top Banner')"
                     :key="ad.id"
                     :ad="ad"
                 />
@@ -112,14 +112,14 @@ function adsForSlot(slotNo: number): Ad[] {
             </Card>
         </div>
 
-        <!-- Slot 6: Footer Banner -->
+        <!-- Footer Banner -->
         <div
-            v-if="adsForSlot(6).length > 0"
+            v-if="adsForPosition('Footer Banner').length > 0"
             class="border-t border-border/60 bg-slate-50 py-3"
         >
             <div class="mx-auto max-w-7xl space-y-2 px-4 sm:px-6">
                 <AdBlock
-                    v-for="ad in adsForSlot(6)"
+                    v-for="ad in adsForPosition('Footer Banner')"
                     :key="ad.id"
                     :ad="ad"
                 />

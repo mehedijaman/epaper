@@ -219,7 +219,7 @@ test('viewer returns pages categories hotspots and date navigation payload', fun
             ->where('page.hotspots.0.target_page_no', 2)
             ->where('page.hotspots.0.label', 'Go next')
             ->has('available_dates')
-            ->where('adsBySlot.1', [])
-            ->where('adsBySlot.8', [])
+            ->missing('adsBySlot.Top Banner')
+            ->missing('adsBySlot.Footer Banner')
         );
 });

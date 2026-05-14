@@ -205,7 +205,7 @@ class PublicEpaperController extends Controller
     }
 
     /**
-     * @return array<int, array<int, array<string, mixed>>>
+     * @return array<string, array<int, array<string, mixed>>>
      */
     private function adsBySlot(): array
     {
@@ -219,21 +219,15 @@ class PublicEpaperController extends Controller
         $grouped = [];
 
         foreach ($ads as $ad) {
-            $slotNo = $ad->adSlot?->slot_no;
+            $slotTitle = $ad->adSlot?->title;
 
-            if ($slotNo === null) {
+            if ($slotTitle === null || $slotTitle === '') {
                 continue;
             }
 
-            $grouped[$slotNo] ??= [];
-            $grouped[$slotNo][] = EpaperData::mapAd($ad);
+            $grouped[$slotTitle] ??= [];
+            $grouped[$slotTitle][] = EpaperData::mapAd($ad);
         }
-
-        foreach (range(1, 8) as $slot) {
-            $grouped[$slot] ??= [];
-        }
-
-        ksort($grouped);
 
         return $grouped;
     }

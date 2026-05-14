@@ -279,6 +279,20 @@ function toDateTimeLocal(value: string | null): string {
     return localDate.toISOString().slice(0, 16);
 }
 
+function toUtcIso(value: string | null): string | null {
+    if (value === null || value.trim() === '') {
+        return null;
+    }
+
+    const parsed = new Date(value);
+
+    if (Number.isNaN(parsed.getTime())) {
+        return null;
+    }
+
+    return parsed.toISOString();
+}
+
 function normalizeNullable(value: string): string | null {
     const normalized = value.trim();
 
@@ -303,8 +317,8 @@ function saveSlot(slot: SlotFormState): void {
     form.click_url = slot.type === 'image' ? normalizeNullable(slot.click_url) : null;
     form.embed_code = slot.type === 'embed' ? normalizeNullable(slot.embed_code) : null;
     form.is_active = slot.is_active;
-    form.starts_at = normalizeNullable(slot.starts_at);
-    form.ends_at = normalizeNullable(slot.ends_at);
+    form.starts_at = toUtcIso(slot.starts_at);
+    form.ends_at = toUtcIso(slot.ends_at);
 
     form.put(`/admin/ads/${slot.slot_no}`, {
         preserveScroll: true,
