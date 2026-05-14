@@ -2,15 +2,20 @@
 
 namespace App\Models;
 
+use Database\Factories\SiteSettingFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class SiteSetting extends Model
 {
-    /** @use HasFactory<\Database\Factories\SiteSettingFactory> */
+    /** @use HasFactory<SiteSettingFactory> */
     use HasFactory;
 
     public const LOGO_PATH = 'logo_path';
+
+    public const FAVICON_PATH = 'favicon_path';
+
+    public const SITE_NAME = 'site_name';
 
     public const FOOTER_EDITOR_INFO = 'footer_editor_info';
 
@@ -78,6 +83,8 @@ class SiteSetting extends Model
     {
         return [
             self::LOGO_PATH,
+            self::FAVICON_PATH,
+            self::SITE_NAME,
             self::FOOTER_EDITOR_INFO,
             self::FOOTER_CONTACT_INFO,
             self::FOOTER_COPYRIGHT,

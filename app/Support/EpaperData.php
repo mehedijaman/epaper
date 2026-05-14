@@ -124,13 +124,19 @@ class EpaperData
      */
     public static function mapAd(Ad $ad): array
     {
+        $disk = (string) config('epaper.disk');
+        $imageUrl = $ad->image_path !== null && $ad->image_path !== ''
+            ? DiskUrl::fromPath($disk, $ad->image_path)
+            : $ad->image_url;
+
         return [
             'id' => $ad->id,
             'ad_slot_id' => $ad->ad_slot_id,
             'slot_no' => $ad->adSlot?->slot_no,
             'slot_name' => $ad->adSlot?->title,
             'type' => $ad->type,
-            'image_url' => $ad->image_url,
+            'image_url' => $imageUrl,
+            'image_path' => $ad->image_path,
             'click_url' => $ad->click_url,
             'embed_code' => $ad->embed_code,
             'is_active' => $ad->is_active,

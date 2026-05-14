@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\AdFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -9,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Ad extends Model
 {
-    /** @use HasFactory<\Database\Factories\AdFactory> */
+    /** @use HasFactory<AdFactory> */
     use HasFactory;
 
     /**
@@ -19,6 +20,7 @@ class Ad extends Model
         'ad_slot_id',
         'type',
         'image_url',
+        'image_path',
         'click_url',
         'embed_code',
         'is_active',
@@ -35,6 +37,7 @@ class Ad extends Model
         return [
             'ad_slot_id' => 'integer',
             'type' => 'string',
+            'image_path' => 'string',
             'is_active' => 'boolean',
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
