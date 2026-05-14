@@ -2111,40 +2111,8 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                 </p>
             </div>
 
-            <Card v-if="hasPage" class="overflow-hidden">
-                <CardHeader class="space-y-3 border-b bg-muted/20">
-                    <div
-                        class="flex flex-wrap items-start justify-between gap-3"
-                    >
-                        <div class="space-y-1">
-                            <CardTitle
-                                class="flex flex-wrap items-center gap-2"
-                            >
-                                <span>{{ editionLabel }}</span>
-                                <Badge variant="outline">{{ props.edition?.edition_date }}</Badge>
-                                <Badge
-                                    :variant="
-                                        props.edition?.status === 'published'
-                                            ? 'default'
-                                            : 'secondary'
-                                    "
-                                >
-                                    {{ props.edition?.status }}
-                                </Badge>
-                            </CardTitle>
-                            <p class="text-sm text-muted-foreground">
-                                Draw a rectangle to create a hotspot, then
-                                connect it to a page or a specific linked
-                                hotspot.
-                            </p>
-                        </div>
-                        <Badge variant="outline"
-                            >Page {{ currentPage?.page_no }}</Badge
-                        >
-                    </div>
-                </CardHeader>
-                <CardContent class="space-y-4 p-4">
-                    <EditionContextBar
+            <div v-if="hasPage" class="overflow-hidden">
+                    <!-- <EditionContextBar
                         v-if="props.edition"
                         :edition-id="props.edition.id"
                         :edition-date="props.edition.edition_date"
@@ -2156,7 +2124,7 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                         :manage-href="manageHref"
                         :publish-href="publishHref"
                         :mapping-href="mappingHref"
-                    />
+                    /> -->
 
                     <div
                         class="grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]"
@@ -2247,7 +2215,7 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                             </p>
                         </div>
 
-                        <div
+                        <!-- <div
                             class="space-y-1 rounded-lg border bg-background p-3"
                         >
                             <p
@@ -2297,7 +2265,7 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                                     Delete unlinked
                                 </Button>
                             </div>
-                        </div>
+                        </div> -->
                     </div>
 
                     <div
@@ -3094,8 +3062,7 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                             </div>
                         </div>
                     </div>
-                </CardContent>
-            </Card>
+            </div>
 
             <Card v-else>
                 <CardContent class="py-6 text-sm text-muted-foreground">
