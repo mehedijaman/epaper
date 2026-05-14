@@ -24,6 +24,10 @@ declare module '@inertiajs/core' {
                 warnings: string[];
             };
             sidebarOpen: boolean;
+            site: {
+                logo_url: string | null;
+                site_name: string;
+            };
             [key: string]: unknown;
         };
     }

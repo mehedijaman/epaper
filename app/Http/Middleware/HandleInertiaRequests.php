@@ -2,6 +2,8 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\SiteSetting;
+use App\Support\DiskUrl;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -64,6 +66,25 @@ class HandleInertiaRequests extends Middleware
                 'warnings' => fn () => $request->session()->get('warnings', []),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            'site' => $this->siteSharedData(),
+        ];
+    }
+
+    /**
+     * @return array{logo_url: string|null, site_name: string}
+     */
+    private function siteSharedData(): array
+    {
+        $disk = (string) config('epaper.disk');
+        $logoPath = SiteSetting::getValue(SiteSetting::LOGO_PATH);
+        $logoUrl = $logoPath !== null && $logoPath !== ''
+            ? DiskUrl::fromPath($disk, $logoPath)
+            : null;
+        $siteName = SiteSetting::getValue(SiteSetting::SITE_NAME);
+
+        return [
+            'logo_url' => $logoUrl,
+            'site_name' => $siteName !== null && $siteName !== '' ? $siteName : (string) config('app.name'),
         ];
     }
 }

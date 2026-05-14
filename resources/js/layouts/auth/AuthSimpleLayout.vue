@@ -1,7 +1,12 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
-import { home } from '@/routes';
+import { login } from '@/routes';
+
+const page = usePage();
+const logoUrl = computed(() => page.props.site?.logo_url ?? null);
+const siteName = computed(() => page.props.site?.site_name || 'ePaper');
 
 defineProps<{
     title?: string;
@@ -17,15 +22,24 @@ defineProps<{
             <div class="flex flex-col gap-8">
                 <div class="flex flex-col items-center gap-4">
                     <Link
-                        :href="home()"
+                        :href="login()"
                         class="flex flex-col items-center gap-2 font-medium"
                     >
-                        <div
-                            class="mb-1 flex h-9 w-9 items-center justify-center rounded-md"
-                        >
-                            <AppLogoIcon
-                                class="size-9 fill-current text-[var(--foreground)] dark:text-white"
+                        <div class="mb-1 flex items-center justify-center">
+                            <img
+                                v-if="logoUrl"
+                                :src="logoUrl"
+                                :alt="siteName"
+                                class="max-h-10 w-auto max-w-[160px] object-contain"
                             />
+                            <div
+                                v-else
+                                class="flex h-9 w-9 items-center justify-center rounded-md"
+                            >
+                                <AppLogoIcon
+                                    class="size-9 fill-current text-[var(--foreground)] dark:text-white"
+                                />
+                            </div>
                         </div>
                         <span class="sr-only">{{ title }}</span>
                     </Link>

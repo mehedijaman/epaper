@@ -1,6 +1,11 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
+
+const page = usePage();
+const logoUrl = computed(() => page.props.site?.logo_url ?? null);
+const siteName = computed(() => page.props.site?.site_name || 'ePaper');
 import {
     Card,
     CardContent,
@@ -8,7 +13,7 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { home } from '@/routes';
+import { login } from '@/routes';
 
 defineProps<{
     title?: string;
@@ -22,10 +27,16 @@ defineProps<{
     >
         <div class="flex w-full max-w-md flex-col gap-6">
             <Link
-                :href="home()"
+                :href="login()"
                 class="flex items-center gap-2 self-center font-medium"
             >
-                <div class="flex h-9 w-9 items-center justify-center">
+                <img
+                    v-if="logoUrl"
+                    :src="logoUrl"
+                    :alt="siteName"
+                    class="max-h-10 w-auto max-w-40 object-contain"
+                />
+                <div v-else class="flex h-9 w-9 items-center justify-center">
                     <AppLogoIcon
                         class="size-9 fill-current text-black dark:text-white"
                     />
