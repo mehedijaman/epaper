@@ -227,7 +227,8 @@ class PageHotspotController extends Controller
                 'category',
                 'hotspots' => fn ($query) => $query->orderBy('id'),
             ])
-            ->latest('id')
+            ->orderByDesc('edition_id')
+            ->orderBy('page_no')
             ->first();
     }
 
