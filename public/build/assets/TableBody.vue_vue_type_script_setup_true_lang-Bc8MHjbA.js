@@ -1,1 +1,0 @@
-import{d as o,o as t,c as r,G as l,u as n,R as c,N as d}from"./app-EnnngZFh.js";const u=o({__name:"TableBody",props:{class:{type:[Boolean,null,String,Object,Array]}},setup(s){const a=s;return(e,p)=>(t(),r("tbody",{"data-slot":"table-body",class:l(n(c)("[&_tr:last-child]:border-0",a.class))},[d(e.$slots,"default")],2))}});export{u as _};
