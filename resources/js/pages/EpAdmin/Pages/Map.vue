@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { Link, Pencil, Save, Trash2 } from 'lucide-vue-next';
+import { Link, PanelRight, Pencil, Save, Trash2 } from 'lucide-vue-next';
 import {
     computed,
     nextTick,
@@ -24,6 +24,12 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+} from '@/components/ui/sheet';
 import {
     Select,
     SelectContent,
@@ -138,6 +144,7 @@ const pendingDeleteHotspot = ref<Hotspot | null>(null);
 const selectedHotspotIds = ref<number[]>([]);
 const bulkDeleteDialogOpen = ref(false);
 const bulkDeletePreset = ref<BulkDeletePreset>('manual');
+const hotspotDrawerOpen = ref(false);
 const discardDialogOpen = ref(false);
 const hotspotDialogBaseline = ref<string | null>(null);
 const pendingPageSelectionId = ref<string | null>(null);
@@ -2183,7 +2190,7 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                             </div>
                         </div>
 
-                        <div
+                        <!-- <div
                             class="space-y-1 rounded-lg border bg-background p-3"
                         >
                             <p
@@ -2213,7 +2220,7 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                             <p class="text-xs text-muted-foreground">
                                 Linked: {{ hotspotStats.paired }}
                             </p>
-                        </div>
+                        </div> -->
 
                         <!-- <div
                             class="space-y-1 rounded-lg border bg-background p-3"
@@ -2269,7 +2276,7 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                     </div>
 
                     <div
-                        class="grid items-stretch gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]"
+                        class="grid items-stretch gap-4"
                     >
                         <div class="space-y-3">
                             <div
@@ -2309,6 +2316,14 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                                                 ? 'Draw mode on'
                                                 : 'Draw mode off'
                                         }}
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        @click="hotspotDrawerOpen = true"
+                                    >
+                                        <PanelRight class="size-4" />
+                                        Hotspots ({{ currentHotspots.length }})
                                     </Button>
                                     <p class="text-muted-foreground">
                                         Shortcut: ← / → page, D draw mode, E
@@ -2597,25 +2612,21 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                             </div>
                         </div>
 
-                        <div
-                            class="flex h-full min-h-0 min-h-[24rem] flex-col overflow-hidden rounded-xl border bg-background"
-                        >
-                            <div
-                                class="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3"
-                            >
-                                <div>
-                                    <h2 class="text-sm font-semibold">
-                                        Existing hotspots
-                                    </h2>
-                                    <p class="text-xs text-muted-foreground">
-                                        {{ filteredHotspots.length }} of
-                                        {{ currentHotspots.length }} shown
-                                    </p>
+                        <!-- Editor Sidebar -->
+                        <Sheet v-model:open="hotspotDrawerOpen">
+                        <SheetContent class="flex w-full flex-col gap-0 p-0 sm:max-w-md" side="right">
+                            <SheetHeader class="border-b px-4 py-3">
+                                <div class="flex items-center justify-between gap-2">
+                                    <SheetTitle>Hotspots</SheetTitle>
+                                    <Badge variant="outline">{{ currentHotspots.length }}</Badge>
                                 </div>
-                                <Badge variant="outline">{{
-                                    currentHotspots.length
-                                }}</Badge>
-                            </div>
+                                <p class="text-xs text-muted-foreground">
+                                    {{ filteredHotspots.length }} of {{ currentHotspots.length }} shown
+                                </p>
+                            </SheetHeader>
+                        <div
+                            class="flex h-full min-h-0 flex-col overflow-hidden"
+                        >
                             <div class="flex flex-col gap-3 border-b p-3">
                                 <Input
                                     v-model="hotspotSearch"
@@ -3061,6 +3072,8 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                                 </p>
                             </div>
                         </div>
+                        </SheetContent>
+                        </Sheet>
                     </div>
             </div>
 
