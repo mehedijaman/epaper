@@ -22,6 +22,12 @@ type SiteSettings = {
     footer_editor_info: string;
     footer_contact_info: string;
     footer_copyright: string;
+    social_facebook: string;
+    social_x: string;
+    social_youtube: string;
+    social_linkedin: string;
+    social_instagram: string;
+    social_pinterest: string;
 };
 
 const props = defineProps<{
@@ -82,6 +88,12 @@ const form = useForm<{
     footer_editor_info: string;
     footer_contact_info: string;
     footer_copyright: string;
+    social_facebook: string;
+    social_x: string;
+    social_youtube: string;
+    social_linkedin: string;
+    social_instagram: string;
+    social_pinterest: string;
 }>({
     logo: null,
     remove_logo: false,
@@ -92,6 +104,12 @@ const form = useForm<{
     footer_editor_info: props.settings.footer_editor_info,
     footer_contact_info: props.settings.footer_contact_info,
     footer_copyright: props.settings.footer_copyright,
+    social_facebook: props.settings.social_facebook,
+    social_x: props.settings.social_x,
+    social_youtube: props.settings.social_youtube,
+    social_linkedin: props.settings.social_linkedin,
+    social_instagram: props.settings.social_instagram,
+    social_pinterest: props.settings.social_pinterest,
 });
 
 const logoPreviewUrl = computed(() => tempLogoUrl.value ?? storedLogoUrl.value);
@@ -602,6 +620,73 @@ function removeSavedFavicon(): void {
                                 placeholder="e.g. Copyright The Daily Newspaper ©2026"
                             />
                             <InputError :message="form.errors.footer_copyright" />
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card class="border-border/70 xl:col-span-2">
+                    <CardHeader class="pb-2">
+                        <CardTitle>Social Profiles</CardTitle>
+                    </CardHeader>
+                    <CardContent class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium">Facebook</label>
+                            <Input
+                                v-model="form.social_facebook"
+                                type="url"
+                                placeholder="https://facebook.com/yourpage"
+                            />
+                            <InputError :message="form.errors.social_facebook" />
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium">X (Twitter)</label>
+                            <Input
+                                v-model="form.social_x"
+                                type="url"
+                                placeholder="https://x.com/yourhandle"
+                            />
+                            <InputError :message="form.errors.social_x" />
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium">YouTube</label>
+                            <Input
+                                v-model="form.social_youtube"
+                                type="url"
+                                placeholder="https://youtube.com/@yourchannel"
+                            />
+                            <InputError :message="form.errors.social_youtube" />
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium">LinkedIn</label>
+                            <Input
+                                v-model="form.social_linkedin"
+                                type="url"
+                                placeholder="https://linkedin.com/company/yourcompany"
+                            />
+                            <InputError :message="form.errors.social_linkedin" />
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium">Instagram</label>
+                            <Input
+                                v-model="form.social_instagram"
+                                type="url"
+                                placeholder="https://instagram.com/yourprofile"
+                            />
+                            <InputError :message="form.errors.social_instagram" />
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium">Pinterest</label>
+                            <Input
+                                v-model="form.social_pinterest"
+                                type="url"
+                                placeholder="https://pinterest.com/yourprofile"
+                            />
+                            <InputError :message="form.errors.social_pinterest" />
                         </div>
                     </CardContent>
                 </Card>

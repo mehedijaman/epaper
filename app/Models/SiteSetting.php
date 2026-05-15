@@ -25,6 +25,18 @@ class SiteSetting extends Model
 
     public const SITE_URL = 'site_url';
 
+    public const SOCIAL_FACEBOOK = 'social_facebook';
+
+    public const SOCIAL_X = 'social_x';
+
+    public const SOCIAL_YOUTUBE = 'social_youtube';
+
+    public const SOCIAL_LINKEDIN = 'social_linkedin';
+
+    public const SOCIAL_INSTAGRAM = 'social_instagram';
+
+    public const SOCIAL_PINTEREST = 'social_pinterest';
+
     /**
      * @var array<int, string>
      */
@@ -91,6 +103,12 @@ class SiteSetting extends Model
             self::FOOTER_EDITOR_INFO,
             self::FOOTER_CONTACT_INFO,
             self::FOOTER_COPYRIGHT,
+            self::SOCIAL_FACEBOOK,
+            self::SOCIAL_X,
+            self::SOCIAL_YOUTUBE,
+            self::SOCIAL_LINKEDIN,
+            self::SOCIAL_INSTAGRAM,
+            self::SOCIAL_PINTEREST,
         ];
     }
 }

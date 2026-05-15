@@ -2447,7 +2447,7 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                                                 }}
                                             </span>
                                             <div
-                                                class="absolute top-0.5 right-0.5 z-30 flex items-center gap-0.5 rounded-md border bg-popover/95 p-0.5 shadow-md backdrop-blur-sm"
+                                                class="absolute bottom-0.5 left-0.5 z-30 flex items-center gap-0.5 rounded-md border bg-popover/95 p-0.5 shadow-md backdrop-blur-sm"
                                                 @mousedown.stop
                                                 @touchstart.stop
                                                 @click.stop

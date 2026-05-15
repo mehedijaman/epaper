@@ -21,6 +21,12 @@ type FooterSettings = {
     footer_contact_info: string;
     footer_copyright: string;
     site_url: string;
+    social_facebook: string;
+    social_x: string;
+    social_youtube: string;
+    social_linkedin: string;
+    social_instagram: string;
+    social_pinterest: string;
 };
 
 const props = defineProps<{
@@ -173,6 +179,12 @@ function closeTab(): void {
             :copyright="settings.footer_copyright"
             :editor-info="settings.footer_editor_info"
             :contact-info="settings.footer_contact_info"
+            :social-facebook="settings.social_facebook"
+            :social-x="settings.social_x"
+            :social-youtube="settings.social_youtube"
+            :social-linkedin="settings.social_linkedin"
+            :social-instagram="settings.social_instagram"
+            :social-pinterest="settings.social_pinterest"
         />
     </div>
 </template>

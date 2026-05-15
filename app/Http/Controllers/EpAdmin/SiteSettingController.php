@@ -39,6 +39,12 @@ class SiteSettingController extends Controller
                 SiteSetting::FOOTER_EDITOR_INFO => (string) ($settings[SiteSetting::FOOTER_EDITOR_INFO] ?? ''),
                 SiteSetting::FOOTER_CONTACT_INFO => (string) ($settings[SiteSetting::FOOTER_CONTACT_INFO] ?? ''),
                 SiteSetting::FOOTER_COPYRIGHT => (string) ($settings[SiteSetting::FOOTER_COPYRIGHT] ?? ''),
+                SiteSetting::SOCIAL_FACEBOOK => (string) ($settings[SiteSetting::SOCIAL_FACEBOOK] ?? ''),
+                SiteSetting::SOCIAL_X => (string) ($settings[SiteSetting::SOCIAL_X] ?? ''),
+                SiteSetting::SOCIAL_YOUTUBE => (string) ($settings[SiteSetting::SOCIAL_YOUTUBE] ?? ''),
+                SiteSetting::SOCIAL_LINKEDIN => (string) ($settings[SiteSetting::SOCIAL_LINKEDIN] ?? ''),
+                SiteSetting::SOCIAL_INSTAGRAM => (string) ($settings[SiteSetting::SOCIAL_INSTAGRAM] ?? ''),
+                SiteSetting::SOCIAL_PINTEREST => (string) ($settings[SiteSetting::SOCIAL_PINTEREST] ?? ''),
             ],
             'logo_url' => $logoUrl,
             'favicon_url' => $faviconUrl,
@@ -90,6 +96,12 @@ class SiteSettingController extends Controller
         SiteSetting::setValue(SiteSetting::FOOTER_EDITOR_INFO, $this->nullableString($validated['footer_editor_info'] ?? null));
         SiteSetting::setValue(SiteSetting::FOOTER_CONTACT_INFO, $this->nullableString($validated['footer_contact_info'] ?? null));
         SiteSetting::setValue(SiteSetting::FOOTER_COPYRIGHT, $this->nullableString($validated['footer_copyright'] ?? null));
+        SiteSetting::setValue(SiteSetting::SOCIAL_FACEBOOK, $this->nullableString($validated['social_facebook'] ?? null));
+        SiteSetting::setValue(SiteSetting::SOCIAL_X, $this->nullableString($validated['social_x'] ?? null));
+        SiteSetting::setValue(SiteSetting::SOCIAL_YOUTUBE, $this->nullableString($validated['social_youtube'] ?? null));
+        SiteSetting::setValue(SiteSetting::SOCIAL_LINKEDIN, $this->nullableString($validated['social_linkedin'] ?? null));
+        SiteSetting::setValue(SiteSetting::SOCIAL_INSTAGRAM, $this->nullableString($validated['social_instagram'] ?? null));
+        SiteSetting::setValue(SiteSetting::SOCIAL_PINTEREST, $this->nullableString($validated['social_pinterest'] ?? null));
 
         return redirect()
             ->route('epadmin.settings.index')

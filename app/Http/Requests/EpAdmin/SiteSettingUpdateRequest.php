@@ -26,6 +26,12 @@ class SiteSettingUpdateRequest extends FormRequest
             'footer_editor_info' => ['nullable', 'string'],
             'footer_contact_info' => ['nullable', 'string'],
             'footer_copyright' => ['nullable', 'string'],
+            'social_facebook' => ['nullable', 'url', 'max:500'],
+            'social_x' => ['nullable', 'url', 'max:500'],
+            'social_youtube' => ['nullable', 'url', 'max:500'],
+            'social_linkedin' => ['nullable', 'url', 'max:500'],
+            'social_instagram' => ['nullable', 'url', 'max:500'],
+            'social_pinterest' => ['nullable', 'url', 'max:500'],
         ];
     }
 }

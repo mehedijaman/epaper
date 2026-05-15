@@ -44,6 +44,12 @@ type FooterSettings = {
     footer_contact_info: string;
     footer_copyright: string;
     site_url: string;
+    social_facebook: string;
+    social_x: string;
+    social_youtube: string;
+    social_linkedin: string;
+    social_instagram: string;
+    social_pinterest: string;
 };
 
 const props = withDefaults(
@@ -593,7 +599,16 @@ onBeforeUnmount(() => {
     <Head :title="title" />
 
     <div class="flex min-h-screen flex-col bg-slate-100 text-slate-900">
-        <PublicHeader :logo-url="logoUrl" :site-url="settings.site_url" />
+        <PublicHeader
+                :logo-url="logoUrl"
+                :site-url="settings.site_url"
+                :social-facebook="settings.social_facebook"
+                :social-x="settings.social_x"
+                :social-youtube="settings.social_youtube"
+                :social-linkedin="settings.social_linkedin"
+                :social-instagram="settings.social_instagram"
+                :social-pinterest="settings.social_pinterest"
+            />
 
         <main class="mx-auto w-full max-w-7xl flex-1 px-2 py-3 sm:px-4">
             <div
@@ -837,6 +852,12 @@ onBeforeUnmount(() => {
             :copyright="settings.footer_copyright"
             :editor-info="settings.footer_editor_info"
             :contact-info="settings.footer_contact_info"
+            :social-facebook="settings.social_facebook"
+            :social-x="settings.social_x"
+            :social-youtube="settings.social_youtube"
+            :social-linkedin="settings.social_linkedin"
+            :social-instagram="settings.social_instagram"
+            :social-pinterest="settings.social_pinterest"
         />
 
         <div

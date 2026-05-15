@@ -89,6 +89,12 @@ class PublicEpaperHotspotController extends Controller
                 SiteSetting::FOOTER_CONTACT_INFO => $rawSettings[SiteSetting::FOOTER_CONTACT_INFO] ?? '',
                 SiteSetting::FOOTER_COPYRIGHT => $rawSettings[SiteSetting::FOOTER_COPYRIGHT] ?? '',
                 SiteSetting::SITE_URL => $rawSettings[SiteSetting::SITE_URL] ?? '',
+                SiteSetting::SOCIAL_FACEBOOK => $rawSettings[SiteSetting::SOCIAL_FACEBOOK] ?? '',
+                SiteSetting::SOCIAL_X => $rawSettings[SiteSetting::SOCIAL_X] ?? '',
+                SiteSetting::SOCIAL_YOUTUBE => $rawSettings[SiteSetting::SOCIAL_YOUTUBE] ?? '',
+                SiteSetting::SOCIAL_LINKEDIN => $rawSettings[SiteSetting::SOCIAL_LINKEDIN] ?? '',
+                SiteSetting::SOCIAL_INSTAGRAM => $rawSettings[SiteSetting::SOCIAL_INSTAGRAM] ?? '',
+                SiteSetting::SOCIAL_PINTEREST => $rawSettings[SiteSetting::SOCIAL_PINTEREST] ?? '',
             ],
             'hotspot' => $this->serializeHotspot($hotspot),
             'targetHotspot' => $targetHotspot !== null
