@@ -1347,8 +1347,23 @@ function hotspotOverlayClass(hotspot: Hotspot): string {
     return 'border-slate-400 bg-slate-200/25 hover:bg-slate-200/45';
 }
 
-function hotspotToolbarIsInside(hotspot: Hotspot): boolean {
-    return hotspot.y < 0.04;
+function hotspotPatternStyle(hotspot: Hotspot): Record<string, string> | null {
+    if (hotspot.target_hotspot_id === null) {
+        return null;
+    }
+
+    const state = hotspotLinkState(hotspot);
+    let color = 'rgba(16,185,129,0.25)';
+
+    if (state === 'outbound') {
+        color = 'rgba(14,165,233,0.25)';
+    } else if (state === 'mismatch') {
+        color = 'rgba(244,63,94,0.25)';
+    }
+
+    return {
+        backgroundImage: `repeating-linear-gradient(45deg, ${color} 0px, ${color} 1px, transparent 1px, transparent 7px)`,
+    };
 }
 
 function hotspotOverlayChipText(state: HotspotLinkState): string {
@@ -2410,6 +2425,11 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                                                 )
                                             "
                                         >
+                                            <div
+                                                v-if="hotspot.target_hotspot_id !== null"
+                                                class="pointer-events-none absolute inset-0 rounded-[2px]"
+                                                :style="hotspotPatternStyle(hotspot) ?? {}"
+                                            />
                                             <span
                                                 v-if="
                                                     hotspotLinkState(
@@ -2427,14 +2447,7 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                                                 }}
                                             </span>
                                             <div
-                                                class="absolute z-30 flex items-center gap-0.5 rounded-md border bg-popover/95 p-0.5 shadow-md backdrop-blur-sm"
-                                                :class="[
-                                                    hotspotToolbarIsInside(
-                                                        hotspot,
-                                                    )
-                                                        ? 'top-0.5 right-0.5'
-                                                        : '-top-1 right-0 -translate-y-full',
-                                                ]"
+                                                class="absolute top-0.5 right-0.5 z-30 flex items-center gap-0.5 rounded-md border bg-popover/95 p-0.5 shadow-md backdrop-blur-sm"
                                                 @mousedown.stop
                                                 @touchstart.stop
                                                 @click.stop
