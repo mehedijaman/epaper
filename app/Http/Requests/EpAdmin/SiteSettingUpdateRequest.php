@@ -22,6 +22,7 @@ class SiteSettingUpdateRequest extends FormRequest
             'favicon' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,svg,ico', 'max:2048'],
             'remove_favicon' => ['sometimes', 'boolean'],
             'site_name' => ['nullable', 'string', 'max:255'],
+            'site_url' => ['nullable', 'url', 'max:255'],
             'footer_editor_info' => ['nullable', 'string'],
             'footer_contact_info' => ['nullable', 'string'],
             'footer_copyright' => ['nullable', 'string'],

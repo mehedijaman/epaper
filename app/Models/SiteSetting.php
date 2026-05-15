@@ -23,6 +23,8 @@ class SiteSetting extends Model
 
     public const FOOTER_COPYRIGHT = 'footer_copyright';
 
+    public const SITE_URL = 'site_url';
+
     /**
      * @var array<int, string>
      */
@@ -85,6 +87,7 @@ class SiteSetting extends Model
             self::LOGO_PATH,
             self::FAVICON_PATH,
             self::SITE_NAME,
+            self::SITE_URL,
             self::FOOTER_EDITOR_INFO,
             self::FOOTER_CONTACT_INFO,
             self::FOOTER_COPYRIGHT,

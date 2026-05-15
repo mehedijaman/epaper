@@ -18,6 +18,7 @@ type SiteSettings = {
     logo_path: string;
     favicon_path: string;
     site_name: string;
+    site_url: string;
     footer_editor_info: string;
     footer_contact_info: string;
     footer_copyright: string;
@@ -77,6 +78,7 @@ const form = useForm<{
     favicon: File | null;
     remove_favicon: boolean;
     site_name: string;
+    site_url: string;
     footer_editor_info: string;
     footer_contact_info: string;
     footer_copyright: string;
@@ -86,6 +88,7 @@ const form = useForm<{
     favicon: null,
     remove_favicon: false,
     site_name: props.settings.site_name,
+    site_url: props.settings.site_url,
     footer_editor_info: props.settings.footer_editor_info,
     footer_contact_info: props.settings.footer_contact_info,
     footer_copyright: props.settings.footer_copyright,
@@ -435,6 +438,16 @@ function removeSavedFavicon(): void {
                                 placeholder="e.g. The Daily Newspaper"
                             />
                             <InputError :message="form.errors.site_name" />
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium">Site URL</label>
+                            <Input
+                                v-model="form.site_url"
+                                type="url"
+                                placeholder="e.g. https://www.thedailynewspaper.com"
+                            />
+                            <InputError :message="form.errors.site_url" />
                         </div>
 
                         <div class="space-y-3">

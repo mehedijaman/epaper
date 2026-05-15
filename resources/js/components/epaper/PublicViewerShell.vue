@@ -5,7 +5,6 @@ import {
     CalendarDays,
     Grid2x2,
     List,
-    Newspaper,
 } from 'lucide-vue-next';
 import type { AcceptableValue } from 'reka-ui';
 import type { ComponentPublicInstance } from 'vue';
@@ -18,6 +17,8 @@ import {
     watch,
 } from 'vue';
 import AdBlock from '@/components/epaper/AdBlock.vue';
+import PublicFooter from '@/components/epaper/PublicFooter.vue';
+import PublicHeader from '@/components/epaper/PublicHeader.vue';
 import ThumbnailRail from '@/components/epaper/ThumbnailRail.vue';
 import ViewerFrame from '@/components/epaper/ViewerFrame.vue';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -42,6 +43,7 @@ type FooterSettings = {
     footer_editor_info: string;
     footer_contact_info: string;
     footer_copyright: string;
+    site_url: string;
 };
 
 const props = withDefaults(
@@ -591,27 +593,7 @@ onBeforeUnmount(() => {
     <Head :title="title" />
 
     <div class="flex min-h-screen flex-col bg-slate-100 text-slate-900">
-        <header class="border-b border-slate-200 bg-white shadow-sm">
-            <div
-                class="mx-auto flex max-w-7xl items-center justify-center px-4 py-3"
-            >
-                <a href="/">
-                    <img
-                        v-if="logoUrl"
-                        :src="logoUrl"
-                        alt="Newspaper logo"
-                        class="h-10 w-auto object-contain sm:h-12"
-                    />
-                    <div v-else class="inline-flex items-center gap-2">
-                        <Newspaper class="size-5 text-slate-700" />
-                        <span
-                            class="text-lg font-bold tracking-tight text-slate-900"
-                            >ePaper</span
-                        >
-                    </div>
-                </a>
-            </div>
-        </header>
+        <PublicHeader :logo-url="logoUrl" :site-url="settings.site_url" />
 
         <main class="mx-auto w-full max-w-7xl flex-1 px-2 py-3 sm:px-4">
             <div
@@ -849,45 +831,13 @@ onBeforeUnmount(() => {
             </div>
         </div>
 
-        <footer class="border-t border-slate-200 bg-white py-4">
-            <div
-                class="mx-auto flex max-w-7xl flex-col gap-6 px-4 text-xs text-slate-600 sm:flex-row sm:items-end sm:justify-between sm:text-sm"
-            >
-                <div class="space-y-2 text-center sm:text-left">
-                    <a href="/">
-                        <img
-                            v-if="logoUrl"
-                            :src="logoUrl"
-                            alt="Newspaper logo"
-                            class="mx-auto h-10 w-auto object-contain sm:mx-0 sm:h-12"
-                        />
-                        <div v-else class="inline-flex items-center gap-2">
-                            <Newspaper class="size-4 text-slate-500" />
-                            <span class="text-sm font-semibold text-slate-700"
-                                >ePaper</span
-                            >
-                        </div>
-                    </a>
-                    <div
-                        class="prose prose-xs max-w-none text-slate-500 [&_a]:underline [&_a:hover]:text-slate-700"
-                        v-html="settings.footer_copyright"
-                    />
-                </div>
-
-                <div class="max-w-4xl space-y-3 text-center text-slate-500 sm:text-right">
-                    <div
-                        v-if="settings.footer_editor_info"
-                        class="prose prose-xs max-w-none text-slate-500 sm:[&_*]:text-right [&_a]:underline [&_a:hover]:text-slate-700"
-                        v-html="settings.footer_editor_info"
-                    />
-                    <div
-                        v-if="settings.footer_contact_info"
-                        class="prose prose-xs max-w-none text-slate-500 sm:[&_*]:text-right [&_a]:underline [&_a:hover]:text-slate-700"
-                        v-html="settings.footer_contact_info"
-                    />
-                </div>
-            </div>
-        </footer>
+        <PublicFooter
+            :logo-url="logoUrl"
+            :site-url="settings.site_url"
+            :copyright="settings.footer_copyright"
+            :editor-info="settings.footer_editor_info"
+            :contact-info="settings.footer_contact_info"
+        />
 
         <div
             v-if="toastMessage !== ''"

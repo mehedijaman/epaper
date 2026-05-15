@@ -25,6 +25,7 @@ defineProps<{
         footer_editor_info: string;
         footer_contact_info: string;
         footer_copyright: string;
+        site_url: string;
     };
 }>();
 </script>

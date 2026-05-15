@@ -35,6 +35,7 @@ class SiteSettingController extends Controller
                 SiteSetting::LOGO_PATH => (string) ($settings[SiteSetting::LOGO_PATH] ?? ''),
                 SiteSetting::FAVICON_PATH => (string) ($settings[SiteSetting::FAVICON_PATH] ?? ''),
                 SiteSetting::SITE_NAME => (string) ($settings[SiteSetting::SITE_NAME] ?? ''),
+                SiteSetting::SITE_URL => (string) ($settings[SiteSetting::SITE_URL] ?? ''),
                 SiteSetting::FOOTER_EDITOR_INFO => (string) ($settings[SiteSetting::FOOTER_EDITOR_INFO] ?? ''),
                 SiteSetting::FOOTER_CONTACT_INFO => (string) ($settings[SiteSetting::FOOTER_CONTACT_INFO] ?? ''),
                 SiteSetting::FOOTER_COPYRIGHT => (string) ($settings[SiteSetting::FOOTER_COPYRIGHT] ?? ''),
@@ -85,6 +86,7 @@ class SiteSettingController extends Controller
         }
 
         SiteSetting::setValue(SiteSetting::SITE_NAME, $this->nullableString($validated['site_name'] ?? null));
+        SiteSetting::setValue(SiteSetting::SITE_URL, $this->nullableString($validated['site_url'] ?? null));
         SiteSetting::setValue(SiteSetting::FOOTER_EDITOR_INFO, $this->nullableString($validated['footer_editor_info'] ?? null));
         SiteSetting::setValue(SiteSetting::FOOTER_CONTACT_INFO, $this->nullableString($validated['footer_contact_info'] ?? null));
         SiteSetting::setValue(SiteSetting::FOOTER_COPYRIGHT, $this->nullableString($validated['footer_copyright'] ?? null));

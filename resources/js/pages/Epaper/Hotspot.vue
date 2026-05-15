@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
-import { Newspaper } from 'lucide-vue-next';
 import { computed, onBeforeUnmount, ref } from 'vue';
+import PublicFooter from '@/components/epaper/PublicFooter.vue';
+import PublicHeader from '@/components/epaper/PublicHeader.vue';
 import { Button } from '@/components/ui/button';
 
 type HotspotDetail = {
@@ -19,6 +20,7 @@ type FooterSettings = {
     footer_editor_info: string;
     footer_contact_info: string;
     footer_copyright: string;
+    site_url: string;
 };
 
 const props = defineProps<{
@@ -139,24 +141,7 @@ function closeTab(): void {
     <Head :title="`Hotspot ${hotspot.id}`" />
 
     <div class="flex min-h-screen flex-col bg-slate-100 text-slate-900">
-        <header class="border-b border-slate-200 bg-white shadow-sm">
-            <div
-                class="mx-auto flex max-w-7xl items-center justify-center px-4 py-3"
-            >
-                <img
-                    v-if="logoUrl"
-                    :src="logoUrl"
-                    alt="Newspaper logo"
-                    class="h-10 w-auto object-contain sm:h-12"
-                />
-                <div v-else class="inline-flex items-center gap-2">
-                    <Newspaper class="size-5 text-slate-700" />
-                    <span class="text-lg font-bold tracking-tight text-slate-900"
-                        >ePaper</span
-                    >
-                </div>
-            </div>
-        </header>
+        <PublicHeader :logo-url="logoUrl" :site-url="settings.site_url" />
 
         <main class="mx-auto w-full max-w-4xl flex-1 px-4 py-6 sm:px-6 lg:py-8">
             <div>
@@ -182,35 +167,12 @@ function closeTab(): void {
             </div>
         </main>
 
-        <footer class="border-t border-slate-200 bg-white py-4">
-            <div
-                class="mx-auto flex max-w-7xl flex-col gap-4 px-4 text-xs text-slate-600 sm:flex-row sm:items-end sm:justify-between sm:text-sm"
-            >
-                <div class="space-y-2 text-center sm:text-left">
-                    <img
-                        v-if="logoUrl"
-                        :src="logoUrl"
-                        alt="Newspaper logo"
-                        class="mx-auto h-10 w-auto object-contain sm:mx-0 sm:h-12"
-                    />
-                    <div v-else class="inline-flex items-center gap-2">
-                        <Newspaper class="size-4 text-slate-500" />
-                        <span class="text-sm font-semibold text-slate-700"
-                            >ePaper</span
-                        >
-                    </div>
-                    <p class="text-slate-500">
-                        {{ settings.footer_copyright }}
-                    </p>
-                </div>
-
-                <div
-                    class="max-w-lg space-y-1 text-center text-slate-500 sm:text-right"
-                >
-                    <p>{{ settings.footer_editor_info }}</p>
-                    <p>{{ settings.footer_contact_info }}</p>
-                </div>
-            </div>
-        </footer>
+        <PublicFooter
+            :logo-url="logoUrl"
+            :site-url="settings.site_url"
+            :copyright="settings.footer_copyright"
+            :editor-info="settings.footer_editor_info"
+            :contact-info="settings.footer_contact_info"
+        />
     </div>
 </template>

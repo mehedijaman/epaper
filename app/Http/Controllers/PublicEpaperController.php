@@ -93,6 +93,7 @@ class PublicEpaperController extends Controller
                 SiteSetting::FOOTER_EDITOR_INFO => $rawSettings[SiteSetting::FOOTER_EDITOR_INFO] ?? '',
                 SiteSetting::FOOTER_CONTACT_INFO => $rawSettings[SiteSetting::FOOTER_CONTACT_INFO] ?? '',
                 SiteSetting::FOOTER_COPYRIGHT => $rawSettings[SiteSetting::FOOTER_COPYRIGHT] ?? '',
+                SiteSetting::SITE_URL => $rawSettings[SiteSetting::SITE_URL] ?? '',
             ],
         ]);
     }
@@ -200,6 +201,7 @@ class PublicEpaperController extends Controller
                 SiteSetting::FOOTER_EDITOR_INFO => $rawSettings[SiteSetting::FOOTER_EDITOR_INFO] ?? '',
                 SiteSetting::FOOTER_CONTACT_INFO => $rawSettings[SiteSetting::FOOTER_CONTACT_INFO] ?? '',
                 SiteSetting::FOOTER_COPYRIGHT => $rawSettings[SiteSetting::FOOTER_COPYRIGHT] ?? '',
+                SiteSetting::SITE_URL => $rawSettings[SiteSetting::SITE_URL] ?? '',
             ],
         ]);
     }
