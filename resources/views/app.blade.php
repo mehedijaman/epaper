@@ -32,6 +32,22 @@
 
         <title inertia>{{ $siteName }}</title>
 
+        @if (!empty($ogTitle))
+            <meta property="og:title" content="{{ $ogTitle }}">
+            <meta property="og:type" content="article">
+            <meta property="og:url" content="{{ $ogUrl }}">
+            @if (!empty($ogImage))
+                <meta property="og:image" content="{{ $ogImage }}">
+                <meta property="og:image:width" content="1200">
+                <meta property="og:image:height" content="630">
+            @endif
+            <meta name="twitter:card" content="summary_large_image">
+            <meta name="twitter:title" content="{{ $ogTitle }}">
+            @if (!empty($ogImage))
+                <meta name="twitter:image" content="{{ $ogImage }}">
+            @endif
+        @endif
+
         @if ($faviconUrl)
             <link rel="icon" href="{{ $faviconUrl }}">
             <link rel="apple-touch-icon" href="{{ $faviconUrl }}">

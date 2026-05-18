@@ -76,6 +76,10 @@ class PublicEpaperHotspotController extends Controller
             ? DiskUrl::fromPath((string) config('epaper.disk'), $logoPath)
             : null;
 
+        $ogTitle = $hotspot->label !== null && $hotspot->label !== ''
+            ? $hotspot->label
+            : "Hotspot {$hotspot->id}";
+
         return Inertia::render('Epaper/Hotspot', [
             'date' => $editionDate,
             'pageNo' => $page->page_no,
@@ -100,6 +104,10 @@ class PublicEpaperHotspotController extends Controller
             'targetHotspot' => $targetHotspot !== null
                 ? $this->serializeHotspot($targetHotspot)
                 : null,
+        ])->withViewData([
+            'ogTitle' => $ogTitle,
+            'ogUrl' => $request->url(),
+            'ogImage' => $previewUrl,
         ]);
     }
 
