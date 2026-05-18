@@ -28,12 +28,14 @@ const gridClass = computed(() => {
 });
 
 const railStyle = computed<CSSProperties>(() => {
-    if (props.railHeight === null || props.railHeight <= 0) {
-        return {};
+    if (props.railHeight !== null && props.railHeight > 0) {
+        return {
+            maxHeight: `${props.railHeight}px`,
+        };
     }
 
     return {
-        height: `${props.railHeight}px`,
+        maxHeight: '100vh',
     };
 });
 
@@ -44,7 +46,7 @@ function onSelect(pageNo: number): void {
 
 <template>
     <aside
-        class="h-full min-h-0 overflow-y-auto border-r border-slate-200 bg-slate-50 p-2"
+        class="sticky top-0 min-h-0 overflow-y-auto border-r border-slate-200 bg-slate-50 p-2"
         :style="railStyle"
     >
         <div :class="gridClass">
