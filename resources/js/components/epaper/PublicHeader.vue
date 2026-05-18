@@ -5,6 +5,7 @@ import { computed } from 'vue';
 const props = defineProps<{
     logoUrl: string | null;
     siteUrl: string;
+    editionDate?: string | null;
     socialFacebook?: string;
     socialX?: string;
     socialYoutube?: string;
@@ -27,7 +28,8 @@ function todayInDhaka(): string {
 }
 
 const formattedDate = computed(() => {
-    const date = new Date(todayInDhaka() + 'T00:00:00');
+    const iso = props.editionDate ?? todayInDhaka();
+    const date = new Date(iso + 'T00:00:00');
     return new Intl.DateTimeFormat('en-GB', {
         weekday: 'long',
         day: 'numeric',

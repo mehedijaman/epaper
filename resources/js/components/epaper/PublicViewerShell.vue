@@ -3,11 +3,12 @@ import { Head, router } from '@inertiajs/vue3';
 import {
     AlertCircle,
     CalendarDays,
+    ChevronLeft,
+    ChevronRight,
     Grid2x2,
     List,
 } from 'lucide-vue-next';
 import type { AcceptableValue } from 'reka-ui';
-import type { ComponentPublicInstance } from 'vue';
 import {
     computed,
     nextTick,
@@ -23,7 +24,6 @@ import ThumbnailRail from '@/components/epaper/ThumbnailRail.vue';
 import ViewerFrame from '@/components/epaper/ViewerFrame.vue';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
     Select,
     SelectContent,
@@ -92,14 +92,12 @@ function dateInDhaka(reference: Date = new Date()): string {
         : '';
 }
 
-const selectedDate = ref(dateInDhaka());
+const selectedDate = ref(props.editionDate ?? dateInDhaka());
 const selectedPage = ref(props.page ? String(props.page.page_no) : '');
 const selectedCategory = ref('');
 const selectedEditionId = ref('');
 const thumbnailMode = ref<'strip' | 'grid'>('strip');
-const dateInputRef = ref<HTMLInputElement | ComponentPublicInstance | null>(
-    null,
-);
+const calendarRef = ref<HTMLElement | null>(null);
 const viewerSectionRef = ref<HTMLElement | null>(null);
 const thumbnailRailHeight = ref<number | null>(null);
 
@@ -488,61 +486,104 @@ function onEditionSelect(rawValue: AcceptableValue): void {
     });
 }
 
-function onDateChange(event: Event): void {
-    const target = event.target as HTMLInputElement | null;
+const calendarOpen = ref(false);
+const calendarViewYear = ref(new Date().getFullYear());
+const calendarViewMonth = ref(new Date().getMonth());
 
-    if (target === null) {
-        return;
+const WEEKDAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+const MONTH_LABELS = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+const calendarMonthLabel = computed(
+    () => `${MONTH_LABELS[calendarViewMonth.value]} ${calendarViewYear.value}`,
+);
+
+const calendarGrid = computed<(string | null)[]>(() => {
+    const year = calendarViewYear.value;
+    const month = calendarViewMonth.value;
+    const firstWeekday = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const cells: (string | null)[] = Array<null>(firstWeekday).fill(null);
+    for (let d = 1; d <= daysInMonth; d++) {
+        const mm = String(month + 1).padStart(2, '0');
+        const dd = String(d).padStart(2, '0');
+        cells.push(`${year}-${mm}-${dd}`);
     }
+    while (cells.length % 7 !== 0) {
+        cells.push(null);
+    }
+    return cells;
+});
 
-    selectedDate.value = target.value;
-    void navigateToDate(target.value);
+const availableDatesSet = computed(() => new Set(props.availableDates));
+
+const formattedSelectedDate = computed(() => {
+    if (!selectedDate.value || !isIsoDate(selectedDate.value)) {
+        return 'Select date';
+    }
+    const d = new Date(selectedDate.value + 'T00:00:00');
+    return new Intl.DateTimeFormat('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+    }).format(d);
+});
+
+function isDateAvailable(date: string): boolean {
+    return availableDatesSet.value.has(date);
 }
 
-function resolveDateInputElement(): HTMLInputElement | null {
-    const value = dateInputRef.value;
-
-    if (value instanceof HTMLInputElement) {
-        return value;
+function openCalendar(): void {
+    if (selectedDate.value && isIsoDate(selectedDate.value)) {
+        const d = new Date(selectedDate.value + 'T00:00:00');
+        calendarViewYear.value = d.getFullYear();
+        calendarViewMonth.value = d.getMonth();
     }
-
-    if (
-        value !== null &&
-        '$el' in value &&
-        (value.$el instanceof HTMLElement || value.$el instanceof SVGElement)
-    ) {
-        const element = value.$el;
-
-        if (element instanceof HTMLInputElement) {
-            return element;
-        }
-
-        const nestedInput = element.querySelector('input[type="date"]');
-
-        if (nestedInput instanceof HTMLInputElement) {
-            return nestedInput;
-        }
-    }
-
-    return null;
+    calendarOpen.value = true;
 }
 
-function openDatePicker(): void {
-    const input = resolveDateInputElement();
-
-    if (input === null) {
-        return;
+function prevCalendarMonth(): void {
+    if (calendarViewMonth.value === 0) {
+        calendarViewMonth.value = 11;
+        calendarViewYear.value--;
+    } else {
+        calendarViewMonth.value--;
     }
-
-    const picker = input as HTMLInputElement & { showPicker?: () => void };
-
-    if (picker.showPicker !== undefined) {
-        picker.showPicker();
-        return;
-    }
-
-    input.focus();
 }
+
+function nextCalendarMonth(): void {
+    if (calendarViewMonth.value === 11) {
+        calendarViewMonth.value = 0;
+        calendarViewYear.value++;
+    } else {
+        calendarViewMonth.value++;
+    }
+}
+
+function selectCalendarDate(date: string | null): void {
+    if (date === null || !isDateAvailable(date)) {
+        return;
+    }
+    calendarOpen.value = false;
+    selectedDate.value = date;
+    void navigateToDate(date);
+}
+
+function handleCalendarClickOutside(event: MouseEvent): void {
+    if (calendarRef.value !== null && !calendarRef.value.contains(event.target as Node)) {
+        calendarOpen.value = false;
+    }
+}
+
+watch(calendarOpen, (isOpen) => {
+    if (isOpen) {
+        document.addEventListener('click', handleCalendarClickOutside);
+    } else {
+        document.removeEventListener('click', handleCalendarClickOutside);
+    }
+});
 
 function toggleThumbnailMode(): void {
     thumbnailMode.value = thumbnailMode.value === 'strip' ? 'grid' : 'strip';
@@ -592,6 +633,7 @@ onBeforeUnmount(() => {
 
     viewerSectionObserver?.disconnect();
     viewerSectionObserver = null;
+    document.removeEventListener('click', handleCalendarClickOutside);
 });
 </script>
 
@@ -602,6 +644,7 @@ onBeforeUnmount(() => {
         <PublicHeader
                 :logo-url="logoUrl"
                 :site-url="settings.site_url"
+                :edition-date="editionDate"
                 :social-facebook="settings.social_facebook"
                 :social-x="settings.social_x"
                 :social-youtube="settings.social_youtube"
@@ -712,27 +755,72 @@ onBeforeUnmount(() => {
                             </Button>
                         </div>
 
-                        <div
-                            class="inline-flex w-full cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 transition hover:border-slate-300 sm:ml-auto sm:w-auto"
-                            @click="openDatePicker"
-                        >
-                            <CalendarDays class="size-4 text-slate-500" />
-                            <Input
-                                ref="dateInputRef"
-                                type="date"
-                                :value="selectedDate"
-                                list="public-viewer-dates"
-                                class="h-auto w-full cursor-pointer border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0 sm:w-[140px]"
-                                @change="onDateChange"
-                                @click.stop="openDatePicker"
-                            />
-                            <datalist id="public-viewer-dates">
-                                <option
-                                    v-for="dateItem in availableDates"
-                                    :key="dateItem"
-                                    :value="dateItem"
-                                />
-                            </datalist>
+                        <div ref="calendarRef" class="relative sm:ml-auto">
+                            <button
+                                type="button"
+                                class="inline-flex w-full cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm transition hover:border-slate-300 hover:bg-white sm:w-auto"
+                                @click.stop="openCalendar"
+                            >
+                                <CalendarDays class="size-4 shrink-0 text-slate-400" />
+                                <span class="font-semibold text-slate-800">{{ formattedSelectedDate }}</span>
+                            </button>
+
+                            <div
+                                v-if="calendarOpen"
+                                class="absolute right-0 top-full z-50 mt-1 w-72 rounded-xl border border-slate-200 bg-white p-3 shadow-xl"
+                            >
+                                <div class="mb-2 flex items-center justify-between">
+                                    <button
+                                        type="button"
+                                        class="flex size-7 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+                                        @click.stop="prevCalendarMonth"
+                                    >
+                                        <ChevronLeft class="size-4" />
+                                    </button>
+                                    <span class="text-sm font-semibold text-slate-800">{{ calendarMonthLabel }}</span>
+                                    <button
+                                        type="button"
+                                        class="flex size-7 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+                                        @click.stop="nextCalendarMonth"
+                                    >
+                                        <ChevronRight class="size-4" />
+                                    </button>
+                                </div>
+                                <div class="mb-1 grid grid-cols-7 text-center">
+                                    <div
+                                        v-for="label in WEEKDAY_LABELS"
+                                        :key="label"
+                                        class="py-1 text-xs font-medium text-slate-400"
+                                    >
+                                        {{ label }}
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-7 gap-0.5">
+                                    <template v-for="(date, i) in calendarGrid" :key="i">
+                                        <button
+                                            v-if="date !== null"
+                                            type="button"
+                                            :disabled="!isDateAvailable(date)"
+                                            :class="[
+                                                'relative w-full rounded-md py-1.5 text-xs transition',
+                                                date === selectedDate
+                                                    ? 'bg-slate-900 font-semibold text-white'
+                                                    : isDateAvailable(date)
+                                                      ? 'cursor-pointer font-medium text-slate-700 hover:bg-slate-100'
+                                                      : 'cursor-not-allowed text-slate-200',
+                                            ]"
+                                            @click.stop="selectCalendarDate(date)"
+                                        >
+                                            {{ Number(date.split('-')[2]) }}
+                                            <span
+                                                v-if="isDateAvailable(date) && date !== selectedDate"
+                                                class="absolute bottom-0.5 left-1/2 size-1 -translate-x-1/2 rounded-full bg-slate-400"
+                                            />
+                                        </button>
+                                        <div v-else />
+                                    </template>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
