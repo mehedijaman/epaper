@@ -691,6 +691,13 @@ function removeSavedFavicon(): void {
                     </CardContent>
                 </Card>
             </div>
+
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-end">
+                
+                <Button :disabled="form.processing || clientLogoError !== '' || clientFaviconError !== ''" @click="submit">
+                    {{ form.processing ? 'Saving...' : 'Save Settings' }}
+                </Button>
+            </div>
         </div>
     </EpAdminLayout>
 </template>

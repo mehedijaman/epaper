@@ -2447,31 +2447,31 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                                                 }}
                                             </span>
                                             <div
-                                                class="absolute bottom-0.5 left-0.5 z-30 flex items-center gap-0.5 rounded-md border bg-popover/95 p-0.5 shadow-md backdrop-blur-sm"
+                                                class="absolute bottom-1 left-1 z-30 flex items-center gap-1 rounded-md border bg-popover/95 p-1 shadow-md backdrop-blur-sm"
                                                 @mousedown.stop
                                                 @touchstart.stop
                                                 @click.stop
                                             >
                                                 <span
-                                                    class="px-1 text-[10px] font-semibold text-muted-foreground"
+                                                    class="px-1 text-lg font-bold text-red-600"
                                                 >
                                                     #{{ hotspot.id }}
                                                 </span>
                                                 <Button
                                                     size="icon-sm"
                                                     variant="ghost"
-                                                    class="size-6"
+                                                    class="size-7"
                                                     title="Edit"
                                                     @click="
                                                         openEditDialog(hotspot)
                                                     "
                                                 >
-                                                    <Pencil class="size-3" />
+                                                    <Pencil class="size-3.5" />
                                                 </Button>
                                                 <Button
                                                     size="icon-sm"
                                                     variant="ghost"
-                                                    class="size-6"
+                                                    class="size-7"
                                                     title="Open linked hotspot"
                                                     :disabled="
                                                         linkedHotspotId(
@@ -2484,18 +2484,18 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                                                         )
                                                     "
                                                 >
-                                                    <Link class="size-3" />
+                                                    <Link class="size-3.5" />
                                                 </Button>
                                                 <Button
                                                     size="icon-sm"
                                                     variant="ghost"
-                                                    class="size-6 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                    class="size-7 text-destructive hover:bg-destructive/10 hover:text-destructive"
                                                     title="Delete"
                                                     @click="
                                                         deleteHotspot(hotspot)
                                                     "
                                                 >
-                                                    <Trash2 class="size-3" />
+                                                    <Trash2 class="size-3.5" />
                                                 </Button>
                                                 <Button
                                                     v-if="
@@ -2505,7 +2505,7 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                                                     "
                                                     size="icon-sm"
                                                     variant="default"
-                                                    class="size-6"
+                                                    class="size-7"
                                                     title="Save area"
                                                     :disabled="
                                                         savingAreaHotspotId ===
@@ -2517,7 +2517,7 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                                                         )
                                                     "
                                                 >
-                                                    <Save class="size-3" />
+                                                    <Save class="size-3.5" />
                                                 </Button>
                                             </div>
                                         </div>
