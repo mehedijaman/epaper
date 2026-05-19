@@ -849,7 +849,7 @@ onBeforeUnmount(() => {
                                     class="h-auto w-full rounded"
                                 />
                                 <p
-                                    class="mt-1 text-center text-[11px] font-medium"
+                                    class="mt-1 text-center text-[11px] font-medium bg-black text-white"
                                     :class="
                                         item.page_no === currentPageNo
                                             ? 'text-sky-700'

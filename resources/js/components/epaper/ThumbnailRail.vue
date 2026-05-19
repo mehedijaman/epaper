@@ -69,8 +69,9 @@ function onSelect(pageNo: number): void {
                     loading="lazy"
                     class="h-auto w-full rounded"
                 />
+                <!-- footer -->
                 <p
-                    class="mt-1 text-center text-[11px] font-medium"
+                    class="mt-1 text-center text-[11px] font-medium bg-black text-white"
                     :class="
                         item.page_no === activePageNo
                             ? 'text-sky-700'
