@@ -589,6 +589,11 @@ function toggleThumbnailMode(): void {
     thumbnailMode.value = thumbnailMode.value === 'strip' ? 'grid' : 'strip';
 }
 
+function navigateToPageFromGrid(pageNo: number): void {
+    thumbnailMode.value = 'strip';
+    navigateToPage(pageNo);
+}
+
 function updateThumbnailRailHeight(): void {
     const section = viewerSectionRef.value;
 
@@ -742,8 +747,8 @@ onBeforeUnmount(() => {
                                 class="shrink-0"
                                 :title="
                                     thumbnailMode === 'strip'
-                                        ? 'Switch to grid thumbnails'
-                                        : 'Switch to strip thumbnails'
+                                        ? 'All pages (thumbnail view)'
+                                        : 'Back to reader'
                                 "
                                 @click="toggleThumbnailMode"
                             >
@@ -845,71 +850,113 @@ onBeforeUnmount(() => {
                     />
                 </div>
 
-                <div
-                    v-if="hasPageData && page"
-                    class="grid items-stretch lg:grid-cols-[140px_minmax(0,1fr)]"
-                >
-                    <ThumbnailRail
-                        class="hidden lg:block"
-                        :pages="scopedPages"
-                        :active-page-no="page.page_no"
-                        :mode="thumbnailMode"
-                        :rail-height="thumbnailRailHeight"
-                        @select="navigateToPage"
-                    />
-
-                    <section
-                        ref="viewerSectionRef"
-                        class="min-w-0 bg-slate-50 p-2 sm:p-3"
+                <template v-if="hasPageData && page">
+                    <!-- Full-page thumbnail grid view -->
+                    <div
+                        v-if="thumbnailMode === 'grid'"
+                        class="p-3 sm:p-5"
                     >
-                        <div
-                            class="mx-auto max-w-5xl"
-                            :class="adsForPosition('Sidebar Right').length > 0 ? 'xl:grid xl:grid-cols-[minmax(0,1fr)_200px] xl:gap-3' : ''"
+                        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                            <button
+                                v-for="item in scopedPages"
+                                :key="item.id"
+                                type="button"
+                                class="group w-full overflow-hidden rounded-lg border bg-white p-1.5 text-left transition-all hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+                                :class="
+                                    item.page_no === currentPageNo
+                                        ? 'border-sky-500 shadow-sm ring-1 ring-sky-500'
+                                        : 'border-slate-200 hover:border-slate-300'
+                                "
+                                :title="`Go to page ${item.page_no}`"
+                                @click="navigateToPageFromGrid(item.page_no)"
+                            >
+                                <img
+                                    :src="item.image_thumb_url"
+                                    :alt="`Page ${item.page_no}`"
+                                    loading="lazy"
+                                    class="h-auto w-full rounded"
+                                />
+                                <p
+                                    class="mt-1 text-center text-[11px] font-medium"
+                                    :class="
+                                        item.page_no === currentPageNo
+                                            ? 'text-sky-700'
+                                            : 'text-slate-500 group-hover:text-slate-700'
+                                    "
+                                >
+                                    Page {{ item.page_no }}
+                                </p>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Strip reader view -->
+                    <div
+                        v-else
+                        class="grid items-stretch lg:grid-cols-[140px_minmax(0,1fr)]"
+                    >
+                        <ThumbnailRail
+                            class="hidden lg:block"
+                            :pages="scopedPages"
+                            :active-page-no="page.page_no"
+                            :mode="'strip'"
+                            :rail-height="thumbnailRailHeight"
+                            @select="navigateToPage"
+                        />
+
+                        <section
+                            ref="viewerSectionRef"
+                            class="min-w-0 bg-slate-50 p-2 sm:p-3"
                         >
-                            <ViewerFrame
-                                :page="page"
-                                :edition-date="frameEditionDate"
-                                :selected-edition-id="selectedEditionIdNumber"
-                                :total-pages="scopedPages.length"
-                                :prev-page-no="prevPageNo"
-                                :next-page-no="nextPageNo"
-                                @previous="
-                                    prevPageNo !== null
-                                        ? navigateToPage(prevPageNo)
-                                        : null
-                                "
-                                @next="
-                                    nextPageNo !== null
-                                        ? navigateToPage(nextPageNo)
-                                        : null
-                                "
-                            />
-                            <!-- Sidebar Right -->
-                            <aside
-                                v-if="adsForPosition('Sidebar Right').length > 0"
-                                class="hidden xl:flex xl:flex-col xl:gap-2"
+                            <div
+                                class="mx-auto max-w-5xl"
+                                :class="adsForPosition('Sidebar Right').length > 0 ? 'xl:grid xl:grid-cols-[minmax(0,1fr)_200px] xl:gap-3' : ''"
+                            >
+                                <ViewerFrame
+                                    :page="page"
+                                    :edition-date="frameEditionDate"
+                                    :selected-edition-id="selectedEditionIdNumber"
+                                    :total-pages="scopedPages.length"
+                                    :prev-page-no="prevPageNo"
+                                    :next-page-no="nextPageNo"
+                                    @previous="
+                                        prevPageNo !== null
+                                            ? navigateToPage(prevPageNo)
+                                            : null
+                                    "
+                                    @next="
+                                        nextPageNo !== null
+                                            ? navigateToPage(nextPageNo)
+                                            : null
+                                    "
+                                />
+                                <!-- Sidebar Right -->
+                                <aside
+                                    v-if="adsForPosition('Sidebar Right').length > 0"
+                                    class="hidden xl:flex xl:flex-col xl:gap-2"
+                                >
+                                    <AdBlock
+                                        v-for="ad in adsForPosition('Sidebar Right')"
+                                        :key="ad.id"
+                                        :ad="ad"
+                                    />
+                                </aside>
+                            </div>
+
+                            <!-- Between-content banner (Sidebar Left on small screens) -->
+                            <div
+                                v-if="adsForPosition('Sidebar Left').length > 0"
+                                class="mx-auto mt-3 max-w-5xl space-y-2"
                             >
                                 <AdBlock
-                                    v-for="ad in adsForPosition('Sidebar Right')"
+                                    v-for="ad in adsForPosition('Sidebar Left')"
                                     :key="ad.id"
                                     :ad="ad"
                                 />
-                            </aside>
-                        </div>
-
-                        <!-- Between-content banner (Sidebar Left on small screens) -->
-                        <div
-                            v-if="adsForPosition('Sidebar Left').length > 0"
-                            class="mx-auto mt-3 max-w-5xl space-y-2"
-                        >
-                            <AdBlock
-                                v-for="ad in adsForPosition('Sidebar Left')"
-                                :key="ad.id"
-                                :ad="ad"
-                            />
-                        </div>
-                    </section>
-                </div>
+                            </div>
+                        </section>
+                    </div>
+                </template>
 
                 <div
                     v-else
