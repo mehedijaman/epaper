@@ -801,12 +801,12 @@ onBeforeUnmount(() => {
                         </div>
                     </div>
 
-                    <p
+                    <!-- <p
                         v-if="!hasCategories"
                         class="mt-1.5 text-xs text-slate-500"
                     >
                         No categories available.
-                    </p>
+                    </p> -->
                 </div>
 
                 <!-- Top Banner -->
