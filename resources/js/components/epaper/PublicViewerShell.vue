@@ -93,7 +93,6 @@ function dateInDhaka(reference: Date = new Date()): string {
 }
 
 const selectedDate = ref(props.editionDate ?? dateInDhaka());
-const selectedPage = ref(props.page ? String(props.page.page_no) : '');
 const selectedCategory = ref('');
 const selectedEditionId = ref('');
 const thumbnailMode = ref<'strip' | 'grid'>('strip');
@@ -265,13 +264,6 @@ watch(
 );
 
 watch(
-    () => props.page?.page_no,
-    (value) => {
-        selectedPage.value = value !== undefined ? String(value) : '';
-    },
-);
-
-watch(
     () => props.page?.category_id,
     (value) => {
         selectedCategory.value =
@@ -424,20 +416,6 @@ async function navigateToDate(date: string): Promise<void> {
     router.visit(targetUrl, {
         preserveScroll: true,
     });
-}
-
-function onPageSelect(rawValue: AcceptableValue): void {
-    if (rawValue === null) {
-        return;
-    }
-
-    const pageNo = Number.parseInt(String(rawValue), 10);
-
-    if (!Number.isFinite(pageNo) || pageNo <= 0) {
-        return;
-    }
-
-    navigateToPage(pageNo);
 }
 
 function onCategorySelect(rawValue: AcceptableValue): void {
@@ -665,38 +643,10 @@ onBeforeUnmount(() => {
                 <div
                     class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 px-3 py-2.5 backdrop-blur-sm"
                 >
-                    <div
-                        class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                        <div
-                            class="flex w-full flex-wrap items-center gap-2 sm:w-auto"
-                        >
-                            <div
-                                class="min-w-[140px] flex-1 basis-[160px] sm:w-[170px] sm:flex-none"
-                            >
-                                <Select
-                                    :model-value="selectedCategory"
-                                    :disabled="!hasCategories"
-                                    @update:model-value="onCategorySelect"
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Category" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem
-                                            v-for="category in categoryOptions"
-                                            :key="category.id"
-                                            :value="String(category.id)"
-                                        >
-                                            {{ category.name }}
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div
-                                class="min-w-[160px] flex-1 basis-[180px] sm:w-[220px] sm:flex-none"
-                            >
+                    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
+                        <!-- Row 1 on mobile (Edition + Calendar); sm:contents lets children join the parent flex row on desktop -->
+                        <div class="flex items-center gap-2 sm:contents">
+                            <div class="min-w-0 flex-1 sm:w-55 sm:flex-none">
                                 <Select
                                     :model-value="selectedEditionId"
                                     :disabled="editionOptions.length === 0"
@@ -717,115 +667,137 @@ onBeforeUnmount(() => {
                                 </Select>
                             </div>
 
-                            <div
-                                class="min-w-[100px] flex-1 basis-[110px] sm:w-[110px] sm:flex-none"
-                            >
-                                <Select
-                                    :model-value="selectedPage"
-                                    :disabled="!hasPageData"
-                                    @update:model-value="onPageSelect"
+                            <div ref="calendarRef" class="relative ml-auto shrink-0 sm:order-last sm:ml-auto">
+                                <button
+                                    type="button"
+                                    class="inline-flex w-full cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm transition hover:border-slate-300 hover:bg-white sm:w-auto"
+                                    @click.stop="openCalendar"
                                 >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Page" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem
-                                            v-for="item in scopedPages"
-                                            :key="item.id"
-                                            :value="String(item.page_no)"
+                                    <CalendarDays class="size-4 shrink-0 text-slate-400" />
+                                    <span class="font-semibold text-slate-800">{{ formattedSelectedDate }}</span>
+                                </button>
+
+                                <div
+                                    v-if="calendarOpen"
+                                    class="absolute right-0 top-full z-50 mt-1 w-72 rounded-xl border border-slate-200 bg-white p-3 shadow-xl"
+                                >
+                                    <div class="mb-2 flex items-center justify-between">
+                                        <button
+                                            type="button"
+                                            class="flex size-7 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+                                            @click.stop="prevCalendarMonth"
                                         >
-                                            Page {{ item.page_no }}
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-sm"
-                                class="shrink-0"
-                                :title="
-                                    thumbnailMode === 'strip'
-                                        ? 'All pages (thumbnail view)'
-                                        : 'Back to reader'
-                                "
-                                @click="toggleThumbnailMode"
-                            >
-                                <Grid2x2
-                                    v-if="thumbnailMode === 'strip'"
-                                    class="size-4"
-                                />
-                                <List v-else class="size-4" />
-                            </Button>
-                        </div>
-
-                        <div ref="calendarRef" class="relative sm:ml-auto">
-                            <button
-                                type="button"
-                                class="inline-flex w-full cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm transition hover:border-slate-300 hover:bg-white sm:w-auto"
-                                @click.stop="openCalendar"
-                            >
-                                <CalendarDays class="size-4 shrink-0 text-slate-400" />
-                                <span class="font-semibold text-slate-800">{{ formattedSelectedDate }}</span>
-                            </button>
-
-                            <div
-                                v-if="calendarOpen"
-                                class="absolute right-0 top-full z-50 mt-1 w-72 rounded-xl border border-slate-200 bg-white p-3 shadow-xl"
-                            >
-                                <div class="mb-2 flex items-center justify-between">
-                                    <button
-                                        type="button"
-                                        class="flex size-7 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
-                                        @click.stop="prevCalendarMonth"
-                                    >
-                                        <ChevronLeft class="size-4" />
-                                    </button>
-                                    <span class="text-sm font-semibold text-slate-800">{{ calendarMonthLabel }}</span>
-                                    <button
-                                        type="button"
-                                        class="flex size-7 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
-                                        @click.stop="nextCalendarMonth"
-                                    >
-                                        <ChevronRight class="size-4" />
-                                    </button>
-                                </div>
-                                <div class="mb-1 grid grid-cols-7 text-center">
-                                    <div
-                                        v-for="label in WEEKDAY_LABELS"
-                                        :key="label"
-                                        class="py-1 text-xs font-medium text-slate-400"
-                                    >
-                                        {{ label }}
+                                            <ChevronLeft class="size-4" />
+                                        </button>
+                                        <span class="text-sm font-semibold text-slate-800">{{ calendarMonthLabel }}</span>
+                                        <button
+                                            type="button"
+                                            class="flex size-7 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+                                            @click.stop="nextCalendarMonth"
+                                        >
+                                            <ChevronRight class="size-4" />
+                                        </button>
+                                    </div>
+                                    <div class="mb-1 grid grid-cols-7 text-center">
+                                        <div
+                                            v-for="label in WEEKDAY_LABELS"
+                                            :key="label"
+                                            class="py-1 text-xs font-medium text-slate-400"
+                                        >
+                                            {{ label }}
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-7 gap-0.5">
+                                        <template v-for="(date, i) in calendarGrid" :key="i">
+                                            <button
+                                                v-if="date !== null"
+                                                type="button"
+                                                :disabled="!isDateAvailable(date)"
+                                                :class="[
+                                                    'relative w-full rounded-md py-1.5 text-xs transition',
+                                                    date === selectedDate
+                                                        ? 'bg-slate-900 font-semibold text-white'
+                                                        : isDateAvailable(date)
+                                                          ? 'cursor-pointer font-medium text-slate-700 hover:bg-slate-100'
+                                                          : 'cursor-not-allowed text-slate-200',
+                                                ]"
+                                                @click.stop="selectCalendarDate(date)"
+                                            >
+                                                {{ Number(date.split('-')[2]) }}
+                                                <span
+                                                    v-if="isDateAvailable(date) && date !== selectedDate"
+                                                    class="absolute bottom-0.5 left-1/2 size-1 -translate-x-1/2 rounded-full bg-slate-400"
+                                                />
+                                            </button>
+                                            <div v-else />
+                                        </template>
                                     </div>
                                 </div>
-                                <div class="grid grid-cols-7 gap-0.5">
-                                    <template v-for="(date, i) in calendarGrid" :key="i">
-                                        <button
-                                            v-if="date !== null"
-                                            type="button"
-                                            :disabled="!isDateAvailable(date)"
-                                            :class="[
-                                                'relative w-full rounded-md py-1.5 text-xs transition',
-                                                date === selectedDate
-                                                    ? 'bg-slate-900 font-semibold text-white'
-                                                    : isDateAvailable(date)
-                                                      ? 'cursor-pointer font-medium text-slate-700 hover:bg-slate-100'
-                                                      : 'cursor-not-allowed text-slate-200',
-                                            ]"
-                                            @click.stop="selectCalendarDate(date)"
-                                        >
-                                            {{ Number(date.split('-')[2]) }}
-                                            <span
-                                                v-if="isDateAvailable(date) && date !== selectedDate"
-                                                class="absolute bottom-0.5 left-1/2 size-1 -translate-x-1/2 rounded-full bg-slate-400"
-                                            />
-                                        </button>
-                                        <div v-else />
-                                    </template>
-                                </div>
                             </div>
+                        </div>
+
+                        <!-- Row 2 on mobile (Pagination + Toggle); sm:contents lets children join the parent flex row on desktop -->
+                        <div class="flex items-center gap-2 sm:contents">
+                            <div class="flex min-w-0 flex-1 items-center gap-1">
+                                <button
+                                    type="button"
+                                    :disabled="prevPageNo === null || !hasPageData"
+                                    title="Previous page"
+                                    class="flex h-7 shrink-0 items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 text-xs font-medium text-slate-600 transition-all hover:border-slate-300 hover:bg-white hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
+                                    @click="prevPageNo !== null ? navigateToPage(prevPageNo) : null"
+                                >
+                                    <ChevronLeft class="size-3.5" />
+                                    <span class="hidden sm:inline">Prev</span>
+                                </button>
+
+                                <div class="min-w-0 flex-1 overflow-x-auto">
+                                    <div class="flex w-max items-center gap-0.5 rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+                                        <button
+                                            v-for="item in scopedPages"
+                                            :key="item.id"
+                                            type="button"
+                                            :disabled="!hasPageData"
+                                            :title="`Page ${item.page_no}`"
+                                            class="flex size-6 items-center justify-center rounded-md text-xs font-semibold transition-all"
+                                            :class="
+                                                item.page_no === currentPageNo
+                                                    ? 'bg-slate-900 text-white shadow-sm'
+                                                    : 'text-slate-500 hover:bg-white hover:text-slate-900 hover:shadow-sm'
+                                            "
+                                            @click="navigateToPage(item.page_no)"
+                                        >
+                                            {{ item.page_no }}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    :disabled="nextPageNo === null || !hasPageData"
+                                    title="Next page"
+                                    class="flex h-7 shrink-0 items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 text-xs font-medium text-slate-600 transition-all hover:border-slate-300 hover:bg-white hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
+                                    @click="nextPageNo !== null ? navigateToPage(nextPageNo) : null"
+                                >
+                                    <span class="hidden sm:inline">Next</span>
+                                    <ChevronRight class="size-3.5" />
+                                </button>
+                            </div>
+
+                            <button
+                                type="button"
+                                class="flex h-7 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium transition-all"
+                                :class="
+                                    thumbnailMode === 'grid'
+                                        ? 'border-slate-900 bg-slate-900 text-white hover:bg-slate-700 hover:border-slate-700'
+                                        : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-white hover:text-slate-900'
+                                "
+                                :title="thumbnailMode === 'strip' ? 'All pages (thumbnail view)' : 'Back to reader'"
+                                @click="toggleThumbnailMode"
+                            >
+                                <Grid2x2 v-if="thumbnailMode === 'strip'" class="size-3.5" />
+                                <List v-else class="size-3.5" />
+                                সব পাতা
+                            </button>
                         </div>
                     </div>
 
