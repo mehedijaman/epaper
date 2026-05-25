@@ -1,1 +1,0 @@
-import{I as s,ap as l,t as n,ah as r,aX as o,l as c,aB as i}from"./app-DEDaTaAD.js";const u=s({__name:"AlertTitle",props:{class:{type:[Boolean,null,String,Object,Array]}},setup(a){const t=a;return(e,p)=>(l(),n("div",{"data-slot":"alert-title",class:r(o(c)("col-start-2 line-clamp-1 min-h-4 font-medium tracking-tight",t.class))},[i(e.$slots,"default")],2))}});export{u as _};

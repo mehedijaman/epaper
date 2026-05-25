@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
+import { Check, Copy, X } from 'lucide-vue-next';
 import { computed, onBeforeUnmount, ref } from 'vue';
 import PublicFooter from '@/components/epaper/PublicFooter.vue';
 import PublicHeader from '@/components/epaper/PublicHeader.vue';
-import { Button } from '@/components/ui/button';
 
 type HotspotDetail = {
     id: number;
@@ -185,19 +185,26 @@ function shareOnLinkedIn(): void {
 
         <main class="mx-auto w-full max-w-4xl flex-1 px-4 py-6 sm:px-6 lg:py-8">
             <div>
-                <div class="flex flex-wrap items-center justify-between gap-4 border border-slate-200 bg-white px-5 py-3 shadow-sm">
-                    <Button variant="outline" size="sm" type="button" @click="closeTab">
+                <div class="flex flex-wrap items-center justify-between gap-3 rounded-t-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                    <!-- Close button -->
+                    <button
+                        type="button"
+                        class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 transition-all hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+                        @click="closeTab"
+                    >
+                        <X class="size-3.5" />
                         Close
-                    </Button>
-                    <div class="flex flex-wrap items-center gap-4">
+                    </button>
+
+                    <div class="flex flex-wrap items-center gap-3">
                         <!-- Social share group -->
-                        <div class="flex items-center gap-1">
-                            <span class="mr-1 text-xs font-medium tracking-wide text-slate-400 uppercase">Share</span>
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-[11px] font-semibold tracking-widest text-slate-400 uppercase">Share</span>
                             <!-- Facebook -->
                             <button
                                 type="button"
                                 title="Share on Facebook"
-                                class="inline-flex size-8 items-center justify-center rounded-full text-slate-500 transition-all hover:bg-[#1877F2] hover:text-white"
+                                class="inline-flex size-8 items-center justify-center rounded-full bg-[#1877F2]/10 text-[#1877F2] transition-all hover:bg-[#1877F2] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1877F2]/50"
                                 @click="shareOnFacebook"
                             >
                                 <svg class="size-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -208,7 +215,7 @@ function shareOnLinkedIn(): void {
                             <button
                                 type="button"
                                 title="Share on X"
-                                class="inline-flex size-8 items-center justify-center rounded-full text-slate-500 transition-all hover:bg-slate-900 hover:text-white"
+                                class="inline-flex size-8 items-center justify-center rounded-full bg-slate-100 text-slate-800 transition-all hover:bg-slate-900 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
                                 @click="shareOnX"
                             >
                                 <svg class="size-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -219,7 +226,7 @@ function shareOnLinkedIn(): void {
                             <button
                                 type="button"
                                 title="Share on WhatsApp"
-                                class="inline-flex size-8 items-center justify-center rounded-full text-slate-500 transition-all hover:bg-[#25D366] hover:text-white"
+                                class="inline-flex size-8 items-center justify-center rounded-full bg-[#25D366]/10 text-[#25D366] transition-all hover:bg-[#25D366] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#25D366]/50"
                                 @click="shareOnWhatsApp"
                             >
                                 <svg class="size-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -230,7 +237,7 @@ function shareOnLinkedIn(): void {
                             <button
                                 type="button"
                                 title="Share on LinkedIn"
-                                class="inline-flex size-8 items-center justify-center rounded-full text-slate-500 transition-all hover:bg-[#0A66C2] hover:text-white"
+                                class="inline-flex size-8 items-center justify-center rounded-full bg-[#0A66C2]/10 text-[#0A66C2] transition-all hover:bg-[#0A66C2] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A66C2]/50"
                                 @click="shareOnLinkedIn"
                             >
                                 <svg class="size-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -240,11 +247,27 @@ function shareOnLinkedIn(): void {
                                 </svg>
                             </button>
                         </div>
+
                         <!-- Divider -->
                         <div class="h-5 w-px bg-slate-200"></div>
-                        <Button variant="default" size="sm" type="button" @click="copyLink">
+
+                        <!-- Copy link button -->
+                        <button
+                            type="button"
+                            class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2"
+                            :class="
+                                copyState === 'copied'
+                                    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 focus-visible:ring-emerald-400'
+                                    : copyState === 'error'
+                                      ? 'bg-red-50 text-red-700 ring-1 ring-red-200 focus-visible:ring-red-400'
+                                      : 'bg-slate-900 text-white hover:bg-slate-700 focus-visible:ring-slate-400'
+                            "
+                            @click="copyLink"
+                        >
+                            <Check v-if="copyState === 'copied'" class="size-3.5" />
+                            <Copy v-else class="size-3.5" />
                             {{ copyButtonLabel }}
-                        </Button>
+                        </button>
                     </div>
                 </div>
 
