@@ -65,7 +65,7 @@ const socialLinks = computed<SocialLink[]>(() => {
 </script>
 
 <template>
-    <header class="border-b border-slate-200 bg-white shadow-sm">
+    <header class="sticky top-0 z-40 border-b border-slate-200 bg-white shadow-sm">
         <div class="mx-auto max-w-7xl px-4">
 
             <!-- Mobile: logo centered, date below, social icons below that -->
