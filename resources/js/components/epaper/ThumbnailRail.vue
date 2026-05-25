@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, type CSSProperties } from 'vue';
+import { computed, nextTick, ref, watch, type CSSProperties } from 'vue';
 import type { ViewerPageListItem } from '@/types';
 
 const props = withDefaults(
@@ -18,6 +18,8 @@ const props = withDefaults(
 const emit = defineEmits<{
     select: [pageNo: number];
 }>();
+
+const railRef = ref<HTMLElement | null>(null);
 
 const gridClass = computed(() => {
     if (props.mode === 'grid') {
@@ -39,6 +41,17 @@ const railStyle = computed<CSSProperties>(() => {
     };
 });
 
+function scrollActiveIntoView(): void {
+    void nextTick(() => {
+        const activeBtn = railRef.value?.querySelector<HTMLElement>('[data-active="true"]');
+        activeBtn?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+}
+
+watch(() => props.activePageNo, () => {
+    scrollActiveIntoView();
+}, { immediate: true });
+
 function onSelect(pageNo: number): void {
     emit('select', pageNo);
 }
@@ -46,6 +59,7 @@ function onSelect(pageNo: number): void {
 
 <template>
     <aside
+        ref="railRef"
         class="sticky top-0 min-h-0 overflow-y-auto border-r border-slate-200 bg-slate-50 p-2"
         :style="railStyle"
     >
@@ -54,6 +68,7 @@ function onSelect(pageNo: number): void {
                 v-for="item in pages"
                 :key="item.id"
                 type="button"
+                :data-active="item.page_no === activePageNo ? 'true' : undefined"
                 class="group w-full overflow-hidden rounded-lg border bg-white p-1 text-left transition-all hover:shadow-md focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:outline-none"
                 :class="
                     item.page_no === activePageNo

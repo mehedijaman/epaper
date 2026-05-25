@@ -1,1 +1,0 @@
-import{I as o,ap as l,t as r,ah as t,aX as n,l as c,aB as p}from"./app-DuGgmlHT.js";const m=o({__name:"DialogFooter",props:{class:{type:[Boolean,null,String,Object,Array]}},setup(e){const a=e;return(s,f)=>(l(),r("div",{"data-slot":"dialog-footer",class:t(n(c)("flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",a.class))},[p(s.$slots,"default")],2))}});export{m as _};

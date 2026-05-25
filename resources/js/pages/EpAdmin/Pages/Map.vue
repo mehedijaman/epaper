@@ -1616,6 +1616,20 @@ function saveHotspot(): void {
 
     hotspotForm.page_id = currentPage.value.id;
 
+    // Capture scroll now, before the request and before dialog close/focus restoration.
+    const savedScrollLeft = canvasViewportRef.value?.scrollLeft ?? 0;
+    const savedScrollTop = canvasViewportRef.value?.scrollTop ?? 0;
+
+    const restoreScroll = (): void => {
+        // nextTick waits for Vue's DOM update (dialog close, Reka UI focus restoration).
+        // The inner rAF then runs after Inertia's own rAF, overwriting any wrong restore.
+        void nextTick(() => {
+            window.requestAnimationFrame(() => {
+                canvasViewportRef.value?.scrollTo(savedScrollLeft, savedScrollTop);
+            });
+        });
+    };
+
     const transformedForm = hotspotForm.transform((data) => ({
         ...data,
         target_hotspot_id:
@@ -1630,6 +1644,7 @@ function saveHotspot(): void {
             onSuccess: () => {
                 areaEditRect.value = null;
                 finalizeDialogClose();
+                restoreScroll();
             },
         });
 
@@ -1642,6 +1657,7 @@ function saveHotspot(): void {
         onSuccess: () => {
             areaEditRect.value = null;
             finalizeDialogClose();
+            restoreScroll();
         },
     });
 }
@@ -2370,6 +2386,7 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
 
                             <div
                                 ref="canvasViewportRef"
+                                scroll-region
                                 class="overflow-auto rounded-xl border bg-background p-3 shadow-sm"
                             >
                                 <div class="relative w-full">

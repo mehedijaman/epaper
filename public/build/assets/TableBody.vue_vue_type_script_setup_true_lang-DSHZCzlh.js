@@ -1,1 +1,0 @@
-import{I as t,ap as o,t as l,ah as r,aX as n,l as c,aB as p}from"./app-DuGgmlHT.js";const _=t({__name:"TableBody",props:{class:{type:[Boolean,null,String,Object,Array]}},setup(a){const s=a;return(e,d)=>(o(),l("tbody",{"data-slot":"table-body",class:r(n(c)("[&_tr:last-child]:border-0",s.class))},[p(e.$slots,"default")],2))}});export{_};
