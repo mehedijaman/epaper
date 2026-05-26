@@ -1111,7 +1111,7 @@ watch(isEditDialogOpen, (isOpen) => {
                                 v-if="activePage"
                                 :src="activePage.image_thumb_url"
                                 :alt="`Page ${activePage.page_no}`"
-                                class="aspect-[3/4] w-full rounded-md border object-cover"
+                                class="aspect-[3/4] w-full rounded-md border border-border object-cover"
                             />
 
                             <div class="space-y-3">
@@ -1159,7 +1159,7 @@ watch(isEditDialogOpen, (isOpen) => {
                             </div>
                         </div>
 
-                        <div class="space-y-2 rounded-md border p-3">
+                        <div class="space-y-2 rounded-md border border-border p-3">
                             <p class="text-sm font-medium">Replace page image</p>
                             <Input
                                 :key="replaceInputKey"
