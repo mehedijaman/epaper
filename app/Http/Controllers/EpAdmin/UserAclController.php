@@ -49,23 +49,6 @@ class UserAclController extends Controller
             ->orderBy('email')
             ->get();
 
-        /** @var Collection<int, Role> $roles */
-        $roles = Role::query()
-            ->where('guard_name', 'web')
-            ->with([
-                'permissions' => fn ($query) => $query->orderBy('name'),
-            ])
-            ->withCount('users')
-            ->orderBy('name')
-            ->get();
-
-        /** @var Collection<int, Permission> $permissions */
-        $permissions = Permission::query()
-            ->where('guard_name', 'web')
-            ->withCount(['roles', 'users'])
-            ->orderBy('name')
-            ->get();
-
         return Inertia::render('EpAdmin/Users/Index', [
             'users' => $users->map(function (User $user): array {
                 $effectivePermissions = $user
@@ -94,25 +77,107 @@ class UserAclController extends Controller
                     'effective_permissions' => $effectivePermissions,
                 ];
             })->values()->all(),
-            'roles' => $roles->map(fn (Role $role): array => [
-                'id' => $role->id,
-                'name' => (string) $role->name,
-                'label' => $this->toLabel($role->name),
-                'permissions' => $role->permissions
-                    ->pluck('name')
-                    ->map(fn (mixed $name): string => (string) $name)
-                    ->values()
-                    ->all(),
-                'users_count' => (int) ($role->users_count ?? 0),
-            ])->values()->all(),
-            'permissions' => $permissions->map(fn (Permission $permission): array => [
-                'id' => $permission->id,
-                'name' => (string) $permission->name,
-                'label' => $this->toLabel($permission->name),
-                'roles_count' => (int) ($permission->roles_count ?? 0),
-                'users_count' => (int) ($permission->users_count ?? 0),
-            ])->values()->all(),
+            'roles' => $this->getRolesData(),
+            'permissions' => $this->getPermissionsData(),
         ]);
+    }
+
+    public function createUser(): Response
+    {
+        return Inertia::render('EpAdmin/Users/Create', [
+            'roles' => $this->getRolesData(),
+            'permissions' => $this->getPermissionsData(),
+        ]);
+    }
+
+    public function editUser(User $user): Response
+    {
+        $user->load([
+            'roles' => fn ($query) => $query->orderBy('name'),
+            'roles.permissions' => fn ($query) => $query->orderBy('name'),
+            'permissions' => fn ($query) => $query->orderBy('name'),
+        ]);
+
+        $effectivePermissions = $user
+            ->getAllPermissions()
+            ->pluck('name')
+            ->map(fn (mixed $name): string => (string) $name)
+            ->sort()
+            ->values()
+            ->all();
+
+        $userData = [
+            'id' => $user->id,
+            'name' => (string) $user->name,
+            'email' => (string) $user->email,
+            'email_verified_at' => $user->email_verified_at?->toISOString(),
+            'roles' => $user->roles
+                ->pluck('name')
+                ->map(fn (mixed $name): string => (string) $name)
+                ->values()
+                ->all(),
+            'direct_permissions' => $user->permissions
+                ->pluck('name')
+                ->map(fn (mixed $name): string => (string) $name)
+                ->values()
+                ->all(),
+            'effective_permissions' => $effectivePermissions,
+        ];
+
+        return Inertia::render('EpAdmin/Users/Edit', [
+            'user' => $userData,
+            'roles' => $this->getRolesData(),
+            'permissions' => $this->getPermissionsData(),
+        ]);
+    }
+
+    /**
+     * @return array<int, array{id: int, name: string, label: string, permissions: list<string>, users_count: int}>
+     */
+    private function getRolesData(): array
+    {
+        /** @var Collection<int, Role> $roles */
+        $roles = Role::query()
+            ->where('guard_name', 'web')
+            ->with([
+                'permissions' => fn ($query) => $query->orderBy('name'),
+            ])
+            ->withCount('users')
+            ->orderBy('name')
+            ->get();
+
+        return $roles->map(fn (Role $role): array => [
+            'id' => $role->id,
+            'name' => (string) $role->name,
+            'label' => $this->toLabel($role->name),
+            'permissions' => $role->permissions
+                ->pluck('name')
+                ->map(fn (mixed $name): string => (string) $name)
+                ->values()
+                ->all(),
+            'users_count' => (int) ($role->users_count ?? 0),
+        ])->values()->all();
+    }
+
+    /**
+     * @return array<int, array{id: int, name: string, label: string, roles_count: int, users_count: int}>
+     */
+    private function getPermissionsData(): array
+    {
+        /** @var Collection<int, Permission> $permissions */
+        $permissions = Permission::query()
+            ->where('guard_name', 'web')
+            ->withCount(['roles', 'users'])
+            ->orderBy('name')
+            ->get();
+
+        return $permissions->map(fn (Permission $permission): array => [
+            'id' => $permission->id,
+            'name' => (string) $permission->name,
+            'label' => $this->toLabel($permission->name),
+            'roles_count' => (int) ($permission->roles_count ?? 0),
+            'users_count' => (int) ($permission->users_count ?? 0),
+        ])->values()->all();
     }
 
     public function storeUser(UserStoreRequest $request): RedirectResponse

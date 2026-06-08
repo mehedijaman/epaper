@@ -102,6 +102,8 @@ Route::middleware(['auth'])->prefix('admin')->name('epadmin.')->group(function (
 
     Route::middleware('can:users.manage')->prefix('users')->name('users.')->group(function () {
         Route::get('/', [UserAclController::class, 'index'])->name('index');
+        Route::get('/accounts/create', [UserAclController::class, 'createUser'])->name('accounts.create');
+        Route::get('/accounts/{user}/edit', [UserAclController::class, 'editUser'])->name('accounts.edit');
         Route::post('/accounts', [UserAclController::class, 'storeUser'])->name('accounts.store');
         Route::put('/accounts/{user}', [UserAclController::class, 'updateUser'])->name('accounts.update');
         Route::delete('/accounts/{user}', [UserAclController::class, 'destroyUser'])->name('accounts.destroy');
