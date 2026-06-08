@@ -25,18 +25,18 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import {
-    Sheet,
-    SheetContent,
-    SheetHeader,
-    SheetTitle,
-} from '@/components/ui/sheet';
-import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+} from '@/components/ui/sheet';
 import EpAdminLayout from '@/layouts/EpAdminLayout.vue';
 import type { BreadcrumbItem, Hotspot, Page } from '@/types';
 
@@ -307,8 +307,10 @@ const orderedHotspots = computed(() => {
                 return a.id - b.id;
             }
 
-            const leftTargetPageNo = a.target_page_no ?? Number.MAX_SAFE_INTEGER;
-            const rightTargetPageNo = b.target_page_no ?? Number.MAX_SAFE_INTEGER;
+            const leftTargetPageNo =
+                a.target_page_no ?? Number.MAX_SAFE_INTEGER;
+            const rightTargetPageNo =
+                b.target_page_no ?? Number.MAX_SAFE_INTEGER;
 
             return leftTargetPageNo - rightTargetPageNo;
         });
@@ -457,7 +459,11 @@ const hasNextPage = computed(
         selectedPageIndex.value < props.edition_pages.length - 1,
 );
 const editionLabel = computed(() => {
-    if (props.edition !== null && typeof props.edition.name === 'string' && props.edition.name.trim() !== '') {
+    if (
+        props.edition !== null &&
+        typeof props.edition.name === 'string' &&
+        props.edition.name.trim() !== ''
+    ) {
         return props.edition.name.trim();
     }
 
@@ -1398,9 +1404,10 @@ function hotspotOverlayTitle(hotspot: Hotspot): string {
     const state = hotspotLinkState(hotspot);
     const linkedId =
         hotspot.target_hotspot_id ?? hotspot.linked_hotspot_id ?? null;
-    const targetPageLabel = hotspot.target_page_no === null
-        ? 'No target page'
-        : `Target page ${hotspot.target_page_no}`;
+    const targetPageLabel =
+        hotspot.target_page_no === null
+            ? 'No target page'
+            : `Target page ${hotspot.target_page_no}`;
 
     if (linkedId !== null) {
         return `${targetPageLabel} • ${hotspotLinkLabel(state)} (#${linkedId})`;
@@ -1625,7 +1632,10 @@ function saveHotspot(): void {
         // The inner rAF then runs after Inertia's own rAF, overwriting any wrong restore.
         void nextTick(() => {
             window.requestAnimationFrame(() => {
-                canvasViewportRef.value?.scrollTo(savedScrollLeft, savedScrollTop);
+                canvasViewportRef.value?.scrollTo(
+                    savedScrollLeft,
+                    savedScrollTop,
+                );
             });
         });
     };
@@ -2150,7 +2160,7 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
             </div>
 
             <div v-if="hasPage" class="overflow-hidden">
-                    <!-- <EditionContextBar
+                <!-- <EditionContextBar
                         v-if="props.edition"
                         :edition-id="props.edition.id"
                         :edition-date="props.edition.edition_date"
@@ -2164,64 +2174,60 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                         :mapping-href="mappingHref"
                     /> -->
 
-                    <div
-                        class="grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]"
-                    >
-                        <div
-                            class="space-y-3 rounded-lg border bg-background p-3"
-                        >
-                            <div
-                                class="flex items-center justify-between gap-2"
+                <div
+                    class="grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]"
+                >
+                    <div class="space-y-3 rounded-lg border bg-background p-3">
+                        <div class="flex items-center justify-between gap-2">
+                            <p
+                                class="text-xs tracking-wide text-muted-foreground uppercase"
                             >
-                                <p
-                                    class="text-xs tracking-wide text-muted-foreground uppercase"
-                                >
-                                    Selected page
-                                </p>
-                                <p
-                                    class="text-xs font-medium text-muted-foreground"
-                                >
-                                    Page {{ currentPage?.page_no }}
-                                </p>
-                            </div>
-                            <Select
-                                :model-value="selectedPageId"
-                                @update:model-value="onPageSelection"
+                                Selected page
+                            </p>
+                            <p
+                                class="text-xs font-medium text-muted-foreground"
                             >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select page" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem
-                                        v-for="item in props.edition_pages"
-                                        :key="item.id"
-                                        :value="String(item.id)"
-                                    >
-                                        Page {{ item.page_no }}
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <div class="grid grid-cols-2 gap-2">
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    :disabled="!hasPreviousPage"
-                                    @click="goToPreviousPage"
-                                >
-                                    Previous page
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    :disabled="!hasNextPage"
-                                    @click="goToNextPage"
-                                >
-                                    Next page
-                                </Button>
-                            </div>
+                                Page {{ currentPage?.page_no }}
+                            </p>
                         </div>
+                        <Select
+                            :model-value="selectedPageId"
+                            @update:model-value="onPageSelection"
+                        >
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select page" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem
+                                    v-for="item in props.edition_pages"
+                                    :key="item.id"
+                                    :value="String(item.id)"
+                                >
+                                    Page {{ item.page_no }}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <div class="grid grid-cols-2 gap-2">
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                :disabled="!hasPreviousPage"
+                                @click="goToPreviousPage"
+                            >
+                                Previous page
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                :disabled="!hasNextPage"
+                                @click="goToNextPage"
+                            >
+                                Next page
+                            </Button>
+                        </div>
+                    </div>
 
-                        <!-- <div
+                    <!-- <div
                             class="space-y-1 rounded-lg border bg-background p-3"
                         >
                             <p
@@ -2253,7 +2259,7 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                             </p>
                         </div> -->
 
-                        <!-- <div
+                    <!-- <div
                             class="space-y-1 rounded-lg border bg-background p-3"
                         >
                             <p
@@ -2304,807 +2310,845 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                                 </Button>
                             </div>
                         </div> -->
-                    </div>
+                </div>
 
-                    <div
-                        class="grid items-stretch gap-4"
-                    >
-                        <div class="space-y-3">
-                            <div
-                                class="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-background px-3 py-2 text-xs"
-                            >
-                                <div class="flex flex-wrap items-center gap-2">
-                                    <Badge variant="default"
-                                        >Linked {{ hotspotStats.paired }}</Badge
-                                    >
-                                    <Badge variant="secondary"
-                                        >Outbound / Inbound
-                                        {{
-                                            hotspotStats.outbound +
-                                            hotspotStats.inbound
-                                        }}</Badge
-                                    >
-                                    <Badge variant="destructive"
-                                        >Mismatch
-                                        {{ hotspotStats.mismatch }}</Badge
-                                    >
-                                    <Badge variant="outline"
-                                        >No link {{ hotspotStats.none }}</Badge
-                                    >
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <Button
-                                        size="sm"
-                                        :variant="
-                                            drawModeEnabled
-                                                ? 'default'
-                                                : 'outline'
-                                        "
-                                        @click="toggleDrawMode"
-                                    >
-                                        {{
-                                            drawModeEnabled
-                                                ? 'Draw mode on'
-                                                : 'Draw mode off'
-                                        }}
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        @click="hotspotDrawerOpen = true"
-                                    >
-                                        <PanelRight class="size-4" />
-                                        Hotspots ({{ currentHotspots.length }})
-                                    </Button>
-                                    <p class="text-muted-foreground">
-                                        Shortcut: ← / → page, D draw mode, E
-                                        area edit, F locate
-                                    </p>
-                                </div>
+                <div class="grid items-stretch gap-4">
+                    <div class="space-y-3">
+                        <div
+                            class="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-background px-3 py-2 text-xs"
+                        >
+                            <div class="flex flex-wrap items-center gap-2">
+                                <Badge variant="default"
+                                    >Linked {{ hotspotStats.paired }}</Badge
+                                >
+                                <Badge variant="secondary"
+                                    >Outbound / Inbound
+                                    {{
+                                        hotspotStats.outbound +
+                                        hotspotStats.inbound
+                                    }}</Badge
+                                >
+                                <Badge variant="destructive"
+                                    >Mismatch {{ hotspotStats.mismatch }}</Badge
+                                >
+                                <Badge variant="outline"
+                                    >No link {{ hotspotStats.none }}</Badge
+                                >
                             </div>
-                            <div
-                                v-if="areaEditTargetHotspot !== null"
-                                class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-xs text-blue-900"
-                            >
-                                <div class="space-y-1">
-                                    <p>
-                                        Area edit mode: drag the box to move
-                                        hotspot #{{ areaEditTargetHotspot.id }}
-                                        or drag handles to scale in/out. Press
-                                        <span class="font-semibold">Esc</span>
-                                        to cancel.
-                                    </p>
-                                </div>
+                            <div class="flex items-center gap-2">
+                                <Button
+                                    size="sm"
+                                    :variant="
+                                        drawModeEnabled ? 'default' : 'outline'
+                                    "
+                                    @click="toggleDrawMode"
+                                >
+                                    {{
+                                        drawModeEnabled
+                                            ? 'Draw mode on'
+                                            : 'Draw mode off'
+                                    }}
+                                </Button>
                                 <Button
                                     size="sm"
                                     variant="outline"
-                                    @click="cancelAreaEditSelection"
+                                    @click="hotspotDrawerOpen = true"
                                 >
-                                    Cancel
+                                    <PanelRight class="size-4" />
+                                    Hotspots ({{ currentHotspots.length }})
                                 </Button>
+                                <p class="text-muted-foreground">
+                                    Shortcut: ← / → page, D draw mode, E area
+                                    edit, F locate
+                                </p>
                             </div>
-
-                            <div
-                                ref="canvasViewportRef"
-                                scroll-region
-                                class="overflow-auto rounded-xl border bg-background p-3 shadow-sm"
+                        </div>
+                        <div
+                            v-if="areaEditTargetHotspot !== null"
+                            class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-xs text-blue-900"
+                        >
+                            <div class="space-y-1">
+                                <p>
+                                    Area edit mode: drag the box to move hotspot
+                                    #{{ areaEditTargetHotspot.id }}
+                                    or drag handles to scale in/out. Press
+                                    <span class="font-semibold">Esc</span>
+                                    to cancel.
+                                </p>
+                            </div>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                @click="cancelAreaEditSelection"
                             >
-                                <div class="relative w-full">
-                                    <img
-                                        ref="imageRef"
-                                        :src="imageSource"
-                                        :alt="`Page ${currentPage?.page_no}`"
-                                        class="block h-auto w-full rounded-md"
-                                        draggable="false"
-                                        @load="updateImageDimensions"
-                                    />
+                                Cancel
+                            </Button>
+                        </div>
+
+                        <div
+                            ref="canvasViewportRef"
+                            scroll-region
+                            class="overflow-auto rounded-xl border bg-background p-3 shadow-sm"
+                        >
+                            <div class="relative w-full">
+                                <img
+                                    ref="imageRef"
+                                    :src="imageSource"
+                                    :alt="`Page ${currentPage?.page_no}`"
+                                    class="block h-auto w-full rounded-md"
+                                    draggable="false"
+                                    @load="updateImageDimensions"
+                                />
+
+                                <div
+                                    v-if="
+                                        imageDimensions.width > 0 &&
+                                        imageDimensions.height > 0
+                                    "
+                                    class="pointer-events-none absolute top-0 left-0 overflow-visible"
+                                    :style="overlayStyle"
+                                >
+                                    <div
+                                        v-for="hotspot in currentHotspots"
+                                        :key="hotspot.id"
+                                        class="pointer-events-auto absolute rounded-sm border-2 transition-colors"
+                                        :class="[
+                                            hotspotOverlayClass(hotspot),
+                                            activeHotspotId === hotspot.id
+                                                ? 'z-20 ring-2 ring-primary ring-offset-1 ring-offset-background'
+                                                : 'z-10',
+                                        ]"
+                                        :style="hotspotToStyle(hotspot)"
+                                        :title="hotspotOverlayTitle(hotspot)"
+                                        @mouseenter="
+                                            activeHotspotId = hotspot.id
+                                        "
+                                        @mouseleave="
+                                            handleHotspotRowLeave(hotspot.id)
+                                        "
+                                        @mousedown.stop.prevent="
+                                            onHotspotOverlayMouseDown(
+                                                hotspot,
+                                                $event,
+                                            )
+                                        "
+                                        @touchstart.stop.prevent="
+                                            onHotspotOverlayTouchStart(
+                                                hotspot,
+                                                $event,
+                                            )
+                                        "
+                                    >
+                                        <div
+                                            v-if="
+                                                hotspot.target_hotspot_id !==
+                                                null
+                                            "
+                                            class="pointer-events-none absolute inset-0 rounded-[2px]"
+                                            :style="
+                                                hotspotPatternStyle(hotspot) ??
+                                                {}
+                                            "
+                                        />
+                                        <span
+                                            v-if="
+                                                hotspotLinkState(hotspot) !==
+                                                'none'
+                                            "
+                                            class="pointer-events-none absolute -top-2 left-0 rounded bg-slate-900/85 px-1 py-0.5 text-[10px] leading-none font-semibold tracking-wide text-white uppercase"
+                                        >
+                                            {{
+                                                hotspotOverlayChipText(
+                                                    hotspotLinkState(hotspot),
+                                                )
+                                            }}
+                                        </span>
+                                        <div
+                                            class="absolute bottom-1 left-1 z-30 flex items-center gap-1 rounded-md border border-neutral-800 bg-black/95 p-1 shadow-md backdrop-blur-sm"
+                                            @mousedown.stop
+                                            @touchstart.stop
+                                            @click.stop
+                                        >
+                                            <span
+                                                class="px-1 text-lg font-bold text-yellow-400"
+                                            >
+                                                #{{ hotspot.id }}
+                                            </span>
+                                            <Button
+                                                size="icon-sm"
+                                                variant="ghost"
+                                                class="size-7 text-white hover:bg-white/10 hover:text-white"
+                                                title="Edit"
+                                                @click="openEditDialog(hotspot)"
+                                            >
+                                                <Pencil class="size-3.5" />
+                                            </Button>
+                                            <Button
+                                                size="icon-sm"
+                                                variant="ghost"
+                                                class="size-7 text-white hover:bg-white/10 hover:text-white"
+                                                title="Open linked hotspot"
+                                                :disabled="
+                                                    linkedHotspotId(hotspot) ===
+                                                    null
+                                                "
+                                                @click="
+                                                    openLinkedHotspot(hotspot)
+                                                "
+                                            >
+                                                <Link class="size-3.5" />
+                                            </Button>
+                                            <Button
+                                                size="icon-sm"
+                                                variant="ghost"
+                                                class="size-7 text-red-500 hover:bg-red-500/20 hover:text-red-500"
+                                                title="Delete"
+                                                @click="deleteHotspot(hotspot)"
+                                            >
+                                                <Trash2 class="size-3.5" />
+                                            </Button>
+                                            <Button
+                                                v-if="
+                                                    areaEditHotspotId ===
+                                                        hotspot.id &&
+                                                    areaEditRect !== null
+                                                "
+                                                size="icon-sm"
+                                                variant="default"
+                                                class="size-7"
+                                                title="Save area"
+                                                :disabled="
+                                                    savingAreaHotspotId ===
+                                                    hotspot.id
+                                                "
+                                                @click="
+                                                    quickSaveHotspotArea(
+                                                        hotspot,
+                                                    )
+                                                "
+                                            >
+                                                <Save class="size-3.5" />
+                                            </Button>
+                                        </div>
+                                    </div>
 
                                     <div
                                         v-if="
-                                            imageDimensions.width > 0 &&
-                                            imageDimensions.height > 0
+                                            areaEditTargetHotspot !== null &&
+                                            areaEditDisplayRect !== null
                                         "
-                                        class="pointer-events-none absolute top-0 left-0 overflow-visible"
-                                        :style="overlayStyle"
+                                        class="pointer-events-auto absolute rounded-sm border-2 border-dashed border-blue-700/85 bg-blue-600/10"
+                                        :class="
+                                            activeAreaTransformHandle !== null
+                                                ? 'cursor-grabbing'
+                                                : 'cursor-move'
+                                        "
+                                        :style="
+                                            hotspotToStyle(areaEditDisplayRect)
+                                        "
+                                        @mousedown.stop.prevent="
+                                            onAreaTransformMouseDown(
+                                                'move',
+                                                $event,
+                                            )
+                                        "
+                                        @touchstart.stop.prevent="
+                                            onAreaTransformTouchStart(
+                                                'move',
+                                                $event,
+                                            )
+                                        "
                                     >
-                                        <div
-                                            v-for="hotspot in currentHotspots"
-                                            :key="hotspot.id"
-                                            class="pointer-events-auto absolute rounded-sm border-2 transition-colors"
-                                            :class="[
-                                                hotspotOverlayClass(hotspot),
-                                                activeHotspotId === hotspot.id
-                                                    ? 'z-20 ring-2 ring-primary ring-offset-1 ring-offset-background'
-                                                    : 'z-10',
-                                            ]"
-                                            :style="hotspotToStyle(hotspot)"
-                                            :title="
-                                                hotspotOverlayTitle(hotspot)
-                                            "
-                                            @mouseenter="
-                                                activeHotspotId = hotspot.id
-                                            "
-                                            @mouseleave="
-                                                handleHotspotRowLeave(
-                                                    hotspot.id,
-                                                )
-                                            "
-                                            @mousedown.stop.prevent="
-                                                onHotspotOverlayMouseDown(
-                                                    hotspot,
-                                                    $event,
-                                                )
-                                            "
-                                            @touchstart.stop.prevent="
-                                                onHotspotOverlayTouchStart(
-                                                    hotspot,
-                                                    $event,
-                                                )
-                                            "
-                                        >
-                                            <div
-                                                v-if="hotspot.target_hotspot_id !== null"
-                                                class="pointer-events-none absolute inset-0 rounded-[2px]"
-                                                :style="hotspotPatternStyle(hotspot) ?? {}"
-                                            />
-                                            <span
-                                                v-if="
-                                                    hotspotLinkState(
-                                                        hotspot,
-                                                    ) !== 'none'
-                                                "
-                                                class="pointer-events-none absolute -top-2 left-0 rounded bg-slate-900/85 px-1 py-0.5 text-[10px] leading-none font-semibold tracking-wide text-white uppercase"
-                                            >
-                                                {{
-                                                    hotspotOverlayChipText(
-                                                        hotspotLinkState(
-                                                            hotspot,
-                                                        ),
-                                                    )
-                                                }}
-                                            </span>
-                                            <div
-                                                class="absolute bottom-1 left-1 z-30 flex items-center gap-1 rounded-md border bg-popover/95 p-1 shadow-md backdrop-blur-sm"
-                                                @mousedown.stop
-                                                @touchstart.stop
-                                                @click.stop
-                                            >
-                                                <span
-                                                    class="px-1 text-lg font-bold text-red-600"
-                                                >
-                                                    #{{ hotspot.id }}
-                                                </span>
-                                                <Button
-                                                    size="icon-sm"
-                                                    variant="ghost"
-                                                    class="size-7"
-                                                    title="Edit"
-                                                    @click="
-                                                        openEditDialog(hotspot)
-                                                    "
-                                                >
-                                                    <Pencil class="size-3.5" />
-                                                </Button>
-                                                <Button
-                                                    size="icon-sm"
-                                                    variant="ghost"
-                                                    class="size-7"
-                                                    title="Open linked hotspot"
-                                                    :disabled="
-                                                        linkedHotspotId(
-                                                            hotspot,
-                                                        ) === null
-                                                    "
-                                                    @click="
-                                                        openLinkedHotspot(
-                                                            hotspot,
-                                                        )
-                                                    "
-                                                >
-                                                    <Link class="size-3.5" />
-                                                </Button>
-                                                <Button
-                                                    size="icon-sm"
-                                                    variant="ghost"
-                                                    class="size-7 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                    title="Delete"
-                                                    @click="
-                                                        deleteHotspot(hotspot)
-                                                    "
-                                                >
-                                                    <Trash2 class="size-3.5" />
-                                                </Button>
-                                                <Button
-                                                    v-if="
-                                                        areaEditHotspotId ===
-                                                            hotspot.id &&
-                                                        areaEditRect !== null
-                                                    "
-                                                    size="icon-sm"
-                                                    variant="default"
-                                                    class="size-7"
-                                                    title="Save area"
-                                                    :disabled="
-                                                        savingAreaHotspotId ===
-                                                        hotspot.id
-                                                    "
-                                                    @click="
-                                                        quickSaveHotspotArea(
-                                                            hotspot,
-                                                        )
-                                                    "
-                                                >
-                                                    <Save class="size-3.5" />
-                                                </Button>
-                                            </div>
-                                        </div>
-
-                                        <div
-                                            v-if="
-                                                areaEditTargetHotspot !==
-                                                    null &&
-                                                areaEditDisplayRect !== null
-                                            "
-                                            class="pointer-events-auto absolute rounded-sm border-2 border-dashed border-blue-700/85 bg-blue-600/10"
+                                        <button
+                                            v-for="handle in areaResizeHandles"
+                                            :key="`resize-handle-${handle}`"
+                                            type="button"
+                                            class="absolute z-10 h-3 w-3 rounded-full border border-white bg-blue-700 shadow-sm"
                                             :class="
-                                                activeAreaTransformHandle !==
-                                                null
-                                                    ? 'cursor-grabbing'
-                                                    : 'cursor-move'
+                                                areaResizeHandleClass(handle)
                                             "
                                             :style="
-                                                hotspotToStyle(
-                                                    areaEditDisplayRect,
-                                                )
+                                                areaResizeHandleStyle(handle)
                                             "
                                             @mousedown.stop.prevent="
                                                 onAreaTransformMouseDown(
-                                                    'move',
+                                                    handle,
                                                     $event,
                                                 )
                                             "
                                             @touchstart.stop.prevent="
                                                 onAreaTransformTouchStart(
-                                                    'move',
+                                                    handle,
                                                     $event,
                                                 )
                                             "
-                                        >
-                                            <button
-                                                v-for="handle in areaResizeHandles"
-                                                :key="`resize-handle-${handle}`"
-                                                type="button"
-                                                class="absolute z-10 h-3 w-3 rounded-full border border-white bg-blue-700 shadow-sm"
-                                                :class="
-                                                    areaResizeHandleClass(
-                                                        handle,
-                                                    )
-                                                "
-                                                :style="
-                                                    areaResizeHandleStyle(
-                                                        handle,
-                                                    )
-                                                "
-                                                @mousedown.stop.prevent="
-                                                    onAreaTransformMouseDown(
-                                                        handle,
-                                                        $event,
-                                                    )
-                                                "
-                                                @touchstart.stop.prevent="
-                                                    onAreaTransformTouchStart(
-                                                        handle,
-                                                        $event,
-                                                    )
-                                                "
-                                            />
-                                        </div>
-
-                                        <div
-                                            v-if="
-                                                hasDraftRect &&
-                                                draftRect !== null &&
-                                                areaEditTargetHotspot === null
-                                            "
-                                            class="absolute rounded-sm border-2 border-blue-500 bg-blue-500/15"
-                                            :style="hotspotToStyle(draftRect)"
                                         />
                                     </div>
 
                                     <div
                                         v-if="
-                                            drawModeEnabled &&
-                                            areaEditTargetHotspot === null &&
-                                            imageDimensions.width > 0 &&
-                                            imageDimensions.height > 0
+                                            hasDraftRect &&
+                                            draftRect !== null &&
+                                            areaEditTargetHotspot === null
                                         "
-                                        class="absolute top-0 left-0 cursor-crosshair touch-none"
-                                        :style="overlayStyle"
-                                        @mousedown="onMouseDown"
-                                        @mousemove="onMouseMove"
-                                        @mouseup="onMouseUp"
-                                        @touchstart.prevent="onTouchStart"
-                                        @touchmove.prevent="onTouchMove"
-                                        @touchend.prevent="onTouchEnd"
-                                        @touchcancel.prevent="onTouchEnd"
+                                        class="absolute rounded-sm border-2 border-blue-500 bg-blue-500/15"
+                                        :style="hotspotToStyle(draftRect)"
                                     />
-                                    <div
-                                        v-if="
-                                            !drawModeEnabled &&
-                                            imageDimensions.width > 0 &&
-                                            imageDimensions.height > 0
-                                        "
-                                        class="pointer-events-none absolute top-2 right-2 rounded bg-slate-900/80 px-2 py-1 text-[11px] font-medium text-white"
-                                    >
-                                        Draw mode off
-                                    </div>
+                                </div>
+
+                                <div
+                                    v-if="
+                                        drawModeEnabled &&
+                                        areaEditTargetHotspot === null &&
+                                        imageDimensions.width > 0 &&
+                                        imageDimensions.height > 0
+                                    "
+                                    class="absolute top-0 left-0 cursor-crosshair touch-none"
+                                    :style="overlayStyle"
+                                    @mousedown="onMouseDown"
+                                    @mousemove="onMouseMove"
+                                    @mouseup="onMouseUp"
+                                    @touchstart.prevent="onTouchStart"
+                                    @touchmove.prevent="onTouchMove"
+                                    @touchend.prevent="onTouchEnd"
+                                    @touchcancel.prevent="onTouchEnd"
+                                />
+                                <div
+                                    v-if="
+                                        !drawModeEnabled &&
+                                        imageDimensions.width > 0 &&
+                                        imageDimensions.height > 0
+                                    "
+                                    class="pointer-events-none absolute top-2 right-2 rounded bg-slate-900/80 px-2 py-1 text-[11px] font-medium text-white"
+                                >
+                                    Draw mode off
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- Editor Sidebar -->
-                        <Sheet v-model:open="hotspotDrawerOpen">
-                        <SheetContent class="flex w-full flex-col gap-0 p-0 sm:max-w-md" side="right">
+                    <!-- Editor Sidebar -->
+                    <Sheet v-model:open="hotspotDrawerOpen">
+                        <SheetContent
+                            class="flex w-full flex-col gap-0 p-0 sm:max-w-md"
+                            side="right"
+                        >
                             <SheetHeader class="border-b px-4 py-3">
-                                <div class="flex items-center justify-between gap-2">
+                                <div
+                                    class="flex items-center justify-between gap-2"
+                                >
                                     <SheetTitle>Hotspots</SheetTitle>
-                                    <Badge variant="outline">{{ currentHotspots.length }}</Badge>
+                                    <Badge variant="outline">{{
+                                        currentHotspots.length
+                                    }}</Badge>
                                 </div>
                                 <p class="text-xs text-muted-foreground">
-                                    {{ filteredHotspots.length }} of {{ currentHotspots.length }} shown
+                                    {{ filteredHotspots.length }} of
+                                    {{ currentHotspots.length }} shown
                                 </p>
                             </SheetHeader>
-                        <div
-                            class="flex h-full min-h-0 flex-col overflow-hidden"
-                        >
-                            <div class="flex flex-col gap-3 border-b p-3">
-                                <Input
-                                    v-model="hotspotSearch"
-                                    type="text"
-                                    placeholder="Search by id, relation, page, label, or link"
-                                />
-                                <div class="space-y-2">
-                                    <p
-                                        class="text-xs font-medium tracking-wide text-muted-foreground uppercase"
-                                    >
-                                        Sort
-                                    </p>
-                                    <Select v-model="hotspotSort">
-                                        <SelectTrigger>
-                                            <SelectValue
-                                                placeholder="Sort hotspots"
-                                            />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="id_asc"
-                                                >ID (oldest first)</SelectItem
-                                            >
-                                            <SelectItem value="id_desc"
-                                                >ID (newest first)</SelectItem
-                                            >
-                                            <SelectItem value="target_page"
-                                                >Target page</SelectItem
-                                            >
-                                            <SelectItem value="relation"
-                                                >Relation kind</SelectItem
-                                            >
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div class="flex flex-wrap gap-2">
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        :class="
-                                            hotspotStateFilter === 'all'
-                                                ? 'border-primary bg-primary/10 text-primary'
-                                                : ''
-                                        "
-                                        @click="setHotspotStateFilter('all')"
-                                    >
-                                        All {{ hotspotCountForFilter('all') }}
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        :class="
-                                            hotspotStateFilter === 'paired'
-                                                ? 'border-primary bg-primary/10 text-primary'
-                                                : ''
-                                        "
-                                        @click="setHotspotStateFilter('paired')"
-                                    >
-                                        Linked
-                                        {{ hotspotCountForFilter('paired') }}
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        :class="
-                                            hotspotStateFilter === 'outbound'
-                                                ? 'border-primary bg-primary/10 text-primary'
-                                                : ''
-                                        "
-                                        @click="
-                                            setHotspotStateFilter('outbound')
-                                        "
-                                    >
-                                        Out
-                                        {{ hotspotCountForFilter('outbound') }}
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        :class="
-                                            hotspotStateFilter === 'inbound'
-                                                ? 'border-primary bg-primary/10 text-primary'
-                                                : ''
-                                        "
-                                        @click="
-                                            setHotspotStateFilter('inbound')
-                                        "
-                                    >
-                                        In
-                                        {{ hotspotCountForFilter('inbound') }}
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        :class="
-                                            hotspotStateFilter === 'mismatch'
-                                                ? 'border-primary bg-primary/10 text-primary'
-                                                : ''
-                                        "
-                                        @click="
-                                            setHotspotStateFilter('mismatch')
-                                        "
-                                    >
-                                        Mismatch
-                                        {{ hotspotCountForFilter('mismatch') }}
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        :class="
-                                            hotspotStateFilter === 'none'
-                                                ? 'border-primary bg-primary/10 text-primary'
-                                                : ''
-                                        "
-                                        @click="setHotspotStateFilter('none')"
-                                    >
-                                        No link
-                                        {{ hotspotCountForFilter('none') }}
-                                    </Button>
-                                </div>
-                                <div class="flex flex-wrap gap-2">
-                                    <Button
-                                        v-if="hotspotSearch.trim() !== ''"
-                                        size="sm"
-                                        variant="ghost"
-                                        class="w-fit"
-                                        @click="hotspotSearch = ''"
-                                    >
-                                        Clear search
-                                    </Button>
-                                    <Button
-                                        v-if="hasActiveListControls"
-                                        size="sm"
-                                        variant="outline"
-                                        class="w-fit"
-                                        @click="resetHotspotListControls"
-                                    >
-                                        Reset filters
-                                    </Button>
-                                </div>
-                                <div
-                                    class="space-y-2 rounded-lg border bg-muted/20 p-2"
-                                >
-                                    <div
-                                        class="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"
-                                    >
-                                        <p>
-                                            Selected
-                                            {{ selectedHotspotCount }}
-                                            hotspot(s)
+                            <div
+                                class="flex h-full min-h-0 flex-col overflow-hidden"
+                            >
+                                <div class="flex flex-col gap-3 border-b p-3">
+                                    <Input
+                                        v-model="hotspotSearch"
+                                        type="text"
+                                        placeholder="Search by id, relation, page, label, or link"
+                                    />
+                                    <div class="space-y-2">
+                                        <p
+                                            class="text-xs font-medium tracking-wide text-muted-foreground uppercase"
+                                        >
+                                            Sort
                                         </p>
-                                        <p>
-                                            Visible selected
-                                            {{ visibleSelectedHotspotCount }}/{{
-                                                filteredHotspots.length
-                                            }}
-                                        </p>
+                                        <Select v-model="hotspotSort">
+                                            <SelectTrigger>
+                                                <SelectValue
+                                                    placeholder="Sort hotspots"
+                                                />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="id_asc"
+                                                    >ID (oldest
+                                                    first)</SelectItem
+                                                >
+                                                <SelectItem value="id_desc"
+                                                    >ID (newest
+                                                    first)</SelectItem
+                                                >
+                                                <SelectItem value="target_page"
+                                                    >Target page</SelectItem
+                                                >
+                                                <SelectItem value="relation"
+                                                    >Relation kind</SelectItem
+                                                >
+                                            </SelectContent>
+                                        </Select>
                                     </div>
                                     <div class="flex flex-wrap gap-2">
                                         <Button
                                             size="sm"
                                             variant="outline"
-                                            :disabled="
-                                                filteredHotspots.length === 0
+                                            :class="
+                                                hotspotStateFilter === 'all'
+                                                    ? 'border-primary bg-primary/10 text-primary'
+                                                    : ''
                                             "
-                                            @click="toggleSelectVisibleHotspots"
+                                            @click="
+                                                setHotspotStateFilter('all')
+                                            "
                                         >
+                                            All
+                                            {{ hotspotCountForFilter('all') }}
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            :class="
+                                                hotspotStateFilter === 'paired'
+                                                    ? 'border-primary bg-primary/10 text-primary'
+                                                    : ''
+                                            "
+                                            @click="
+                                                setHotspotStateFilter('paired')
+                                            "
+                                        >
+                                            Linked
                                             {{
-                                                areAllVisibleHotspotsSelected
-                                                    ? 'Unselect shown'
-                                                    : 'Select shown'
+                                                hotspotCountForFilter('paired')
                                             }}
                                         </Button>
                                         <Button
                                             size="sm"
-                                            variant="ghost"
-                                            :disabled="!hasSelectedHotspots"
-                                            @click="clearSelectedHotspots"
+                                            variant="outline"
+                                            :class="
+                                                hotspotStateFilter ===
+                                                'outbound'
+                                                    ? 'border-primary bg-primary/10 text-primary'
+                                                    : ''
+                                            "
+                                            @click="
+                                                setHotspotStateFilter(
+                                                    'outbound',
+                                                )
+                                            "
                                         >
-                                            Clear selected
+                                            Out
+                                            {{
+                                                hotspotCountForFilter(
+                                                    'outbound',
+                                                )
+                                            }}
                                         </Button>
                                         <Button
                                             size="sm"
-                                            variant="destructive"
-                                            :disabled="
-                                                !hasSelectedHotspots ||
-                                                bulkDeleteForm.processing
+                                            variant="outline"
+                                            :class="
+                                                hotspotStateFilter === 'inbound'
+                                                    ? 'border-primary bg-primary/10 text-primary'
+                                                    : ''
                                             "
                                             @click="
-                                                requestBulkDeleteSelectedHotspots
+                                                setHotspotStateFilter('inbound')
                                             "
                                         >
-                                            Delete selected
+                                            In
+                                            {{
+                                                hotspotCountForFilter('inbound')
+                                            }}
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            :class="
+                                                hotspotStateFilter ===
+                                                'mismatch'
+                                                    ? 'border-primary bg-primary/10 text-primary'
+                                                    : ''
+                                            "
+                                            @click="
+                                                setHotspotStateFilter(
+                                                    'mismatch',
+                                                )
+                                            "
+                                        >
+                                            Mismatch
+                                            {{
+                                                hotspotCountForFilter(
+                                                    'mismatch',
+                                                )
+                                            }}
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            :class="
+                                                hotspotStateFilter === 'none'
+                                                    ? 'border-primary bg-primary/10 text-primary'
+                                                    : ''
+                                            "
+                                            @click="
+                                                setHotspotStateFilter('none')
+                                            "
+                                        >
+                                            No link
+                                            {{ hotspotCountForFilter('none') }}
                                         </Button>
                                     </div>
-                                </div>
-                            </div>
-
-                            <div class="flex-1 space-y-3 overflow-y-auto p-3">
-                                <div
-                                    v-for="hotspot in filteredHotspots"
-                                    :key="hotspot.id"
-                                    :ref="
-                                        (element) =>
-                                            setHotspotRowRef(
-                                                hotspot.id,
-                                                element,
-                                            )
-                                    "
-                                    role="button"
-                                    tabindex="0"
-                                    class="group cursor-pointer space-y-3 rounded-lg border bg-card p-3 shadow-sm transition hover:border-primary/40"
-                                    :class="[
-                                        activeHotspotId === hotspot.id
-                                            ? 'border-primary bg-primary/5'
-                                            : '',
-                                        selectedHotspotIdSet.has(hotspot.id)
-                                            ? 'border-destructive/40 bg-destructive/5'
-                                            : '',
-                                    ]"
-                                    @mouseenter="
-                                        handleHotspotRowHover(hotspot.id)
-                                    "
-                                    @mouseleave="
-                                        handleHotspotRowLeave(hotspot.id)
-                                    "
-                                    @focus="handleHotspotRowHover(hotspot.id)"
-                                    @blur="handleHotspotRowLeave(hotspot.id)"
-                                    @click="openEditDialog(hotspot)"
-                                    @keydown.enter.prevent="
-                                        openEditDialog(hotspot)
-                                    "
-                                    @keydown.space.prevent="
-                                        openEditDialog(hotspot)
-                                    "
-                                >
-                                    <div class="flex items-start gap-3">
-                                        <label
-                                            class="mt-1 flex items-center gap-2 text-xs text-muted-foreground"
-                                            @click.stop
+                                    <div class="flex flex-wrap gap-2">
+                                        <Button
+                                            v-if="hotspotSearch.trim() !== ''"
+                                            size="sm"
+                                            variant="ghost"
+                                            class="w-fit"
+                                            @click="hotspotSearch = ''"
                                         >
-                                            <input
-                                                type="checkbox"
-                                                class="h-4 w-4 rounded border-border text-primary focus:ring-primary"
-                                                :checked="
-                                                    selectedHotspotIdSet.has(
-                                                        hotspot.id,
-                                                    )
-                                                "
-                                                @change.stop="
-                                                    toggleHotspotSelection(
-                                                        hotspot.id,
-                                                    )
-                                                "
-                                            />
-                                            <span class="sr-only"
-                                                >Select hotspot
-                                                {{ hotspot.id }}</span
-                                            >
-                                        </label>
+                                            Clear search
+                                        </Button>
+                                        <Button
+                                            v-if="hasActiveListControls"
+                                            size="sm"
+                                            variant="outline"
+                                            class="w-fit"
+                                            @click="resetHotspotListControls"
+                                        >
+                                            Reset filters
+                                        </Button>
+                                    </div>
+                                    <div
+                                        class="space-y-2 rounded-lg border bg-muted/20 p-2"
+                                    >
                                         <div
-                                            class="relative h-16 w-24 shrink-0 overflow-hidden rounded-md border bg-muted/30"
+                                            class="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"
                                         >
-                                            <img
-                                                v-if="imageSource !== ''"
-                                                :src="imageSource"
-                                                alt=""
-                                                class="pointer-events-none absolute select-none"
-                                                draggable="false"
-                                                :style="
-                                                    hotspotThumbnailImageStyle(
+                                            <p>
+                                                Selected
+                                                {{ selectedHotspotCount }}
+                                                hotspot(s)
+                                            </p>
+                                            <p>
+                                                Visible selected
+                                                {{
+                                                    visibleSelectedHotspotCount
+                                                }}/{{ filteredHotspots.length }}
+                                            </p>
+                                        </div>
+                                        <div class="flex flex-wrap gap-2">
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                :disabled="
+                                                    filteredHotspots.length ===
+                                                    0
+                                                "
+                                                @click="
+                                                    toggleSelectVisibleHotspots
+                                                "
+                                            >
+                                                {{
+                                                    areAllVisibleHotspotsSelected
+                                                        ? 'Unselect shown'
+                                                        : 'Select shown'
+                                                }}
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                :disabled="!hasSelectedHotspots"
+                                                @click="clearSelectedHotspots"
+                                            >
+                                                Clear selected
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="destructive"
+                                                :disabled="
+                                                    !hasSelectedHotspots ||
+                                                    bulkDeleteForm.processing
+                                                "
+                                                @click="
+                                                    requestBulkDeleteSelectedHotspots
+                                                "
+                                            >
+                                                Delete selected
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div
+                                    class="flex-1 space-y-3 overflow-y-auto p-3"
+                                >
+                                    <div
+                                        v-for="hotspot in filteredHotspots"
+                                        :key="hotspot.id"
+                                        :ref="
+                                            (element) =>
+                                                setHotspotRowRef(
+                                                    hotspot.id,
+                                                    element,
+                                                )
+                                        "
+                                        role="button"
+                                        tabindex="0"
+                                        class="group cursor-pointer space-y-3 rounded-lg border bg-card p-3 shadow-sm transition hover:border-primary/40"
+                                        :class="[
+                                            activeHotspotId === hotspot.id
+                                                ? 'border-primary bg-primary/5'
+                                                : '',
+                                            selectedHotspotIdSet.has(hotspot.id)
+                                                ? 'border-destructive/40 bg-destructive/5'
+                                                : '',
+                                        ]"
+                                        @mouseenter="
+                                            handleHotspotRowHover(hotspot.id)
+                                        "
+                                        @mouseleave="
+                                            handleHotspotRowLeave(hotspot.id)
+                                        "
+                                        @focus="
+                                            handleHotspotRowHover(hotspot.id)
+                                        "
+                                        @blur="
+                                            handleHotspotRowLeave(hotspot.id)
+                                        "
+                                        @click="openEditDialog(hotspot)"
+                                        @keydown.enter.prevent="
+                                            openEditDialog(hotspot)
+                                        "
+                                        @keydown.space.prevent="
+                                            openEditDialog(hotspot)
+                                        "
+                                    >
+                                        <div class="flex items-start gap-3">
+                                            <label
+                                                class="mt-1 flex items-center gap-2 text-xs text-muted-foreground"
+                                                @click.stop
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    class="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                                                    :checked="
+                                                        selectedHotspotIdSet.has(
+                                                            hotspot.id,
+                                                        )
+                                                    "
+                                                    @change.stop="
+                                                        toggleHotspotSelection(
+                                                            hotspot.id,
+                                                        )
+                                                    "
+                                                />
+                                                <span class="sr-only"
+                                                    >Select hotspot
+                                                    {{ hotspot.id }}</span
+                                                >
+                                            </label>
+                                            <div
+                                                class="relative h-16 w-24 shrink-0 overflow-hidden rounded-md border bg-muted/30"
+                                            >
+                                                <img
+                                                    v-if="imageSource !== ''"
+                                                    :src="imageSource"
+                                                    alt=""
+                                                    class="pointer-events-none absolute select-none"
+                                                    draggable="false"
+                                                    :style="
+                                                        hotspotThumbnailImageStyle(
+                                                            hotspot,
+                                                        )
+                                                    "
+                                                />
+                                                <div
+                                                    v-else
+                                                    class="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground"
+                                                >
+                                                    No preview
+                                                </div>
+                                            </div>
+
+                                            <div
+                                                class="min-w-0 flex-1 space-y-2 text-sm"
+                                            >
+                                                <div
+                                                    class="flex flex-wrap items-center justify-between gap-2"
+                                                >
+                                                    <p class="font-medium">
+                                                        #{{ hotspot.id }}
+                                                    </p>
+                                                    <Badge
+                                                        :variant="
+                                                            hotspotLinkBadgeVariant(
+                                                                hotspotLinkState(
+                                                                    hotspot,
+                                                                ),
+                                                            )
+                                                        "
+                                                    >
+                                                        {{
+                                                            hotspotLinkLabel(
+                                                                hotspotLinkState(
+                                                                    hotspot,
+                                                                ),
+                                                            )
+                                                        }}
+                                                    </Badge>
+                                                </div>
+                                                <p
+                                                    class="text-muted-foreground"
+                                                >
+                                                    {{
+                                                        hotspot.relation_kind
+                                                    }}
+                                                    →
+                                                    {{
+                                                        hotspotTargetPageLabel(
+                                                            hotspot.target_page_no,
+                                                        )
+                                                    }}
+                                                </p>
+                                                <p
+                                                    v-if="
+                                                        hotspot.target_hotspot_id ||
+                                                        hotspot.linked_hotspot_id
+                                                    "
+                                                    class="text-muted-foreground"
+                                                >
+                                                    Linked hotspot: #{{
+                                                        hotspot.target_hotspot_id ??
+                                                        hotspot.linked_hotspot_id
+                                                    }}
+                                                    <span
+                                                        v-if="
+                                                            linkedHotspotPageNo(
+                                                                hotspot,
+                                                            ) !== null
+                                                        "
+                                                    >
+                                                        (Page
+                                                        {{
+                                                            linkedHotspotPageNo(
+                                                                hotspot,
+                                                            )
+                                                        }})
+                                                    </span>
+                                                </p>
+                                                <p
+                                                    v-if="hotspot.label"
+                                                    class="truncate text-muted-foreground"
+                                                >
+                                                    {{ hotspot.label }}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div
+                                            class="flex max-h-0 flex-wrap gap-2 overflow-hidden opacity-0 transition-all duration-200 group-focus-within:max-h-20 group-focus-within:opacity-100 group-hover:max-h-20 group-hover:opacity-100"
+                                            :class="[
+                                                activeHotspotId ===
+                                                    hotspot.id ||
+                                                selectedHotspotIdSet.has(
+                                                    hotspot.id,
+                                                )
+                                                    ? '!max-h-20 !opacity-100'
+                                                    : '',
+                                            ]"
+                                        >
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                class="flex-1 sm:flex-none"
+                                                @click.stop="
+                                                    focusHotspotOnCanvas(
                                                         hotspot,
                                                     )
                                                 "
-                                            />
-                                            <div
-                                                v-else
-                                                class="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground"
                                             >
-                                                No preview
-                                            </div>
-                                        </div>
-
-                                        <div
-                                            class="min-w-0 flex-1 space-y-2 text-sm"
-                                        >
-                                            <div
-                                                class="flex flex-wrap items-center justify-between gap-2"
-                                            >
-                                                <p class="font-medium">
-                                                    #{{ hotspot.id }}
-                                                </p>
-                                                <Badge
-                                                    :variant="
-                                                        hotspotLinkBadgeVariant(
-                                                            hotspotLinkState(
-                                                                hotspot,
-                                                            ),
-                                                        )
-                                                    "
-                                                >
-                                                    {{
-                                                        hotspotLinkLabel(
-                                                            hotspotLinkState(
-                                                                hotspot,
-                                                            ),
-                                                        )
-                                                    }}
-                                                </Badge>
-                                            </div>
-                                            <p class="text-muted-foreground">
-                                                {{ hotspot.relation_kind }} →
-                                                {{
-                                                    hotspotTargetPageLabel(
-                                                        hotspot.target_page_no,
-                                                    )
-                                                }}
-                                            </p>
-                                            <p
-                                                v-if="
-                                                    hotspot.target_hotspot_id ||
-                                                    hotspot.linked_hotspot_id
+                                                Locate
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                class="flex-1 sm:flex-none"
+                                                @click.stop="
+                                                    openEditDialog(hotspot)
                                                 "
-                                                class="text-muted-foreground"
                                             >
-                                                Linked hotspot: #{{
-                                                    hotspot.target_hotspot_id ??
-                                                    hotspot.linked_hotspot_id
+                                                Edit
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                :variant="
+                                                    areaEditHotspotId ===
+                                                    hotspot.id
+                                                        ? 'default'
+                                                        : 'outline'
+                                                "
+                                                class="flex-1 sm:flex-none"
+                                                @click.stop="
+                                                    areaEditHotspotId ===
+                                                    hotspot.id
+                                                        ? cancelAreaEditSelection()
+                                                        : startAreaEditSelection(
+                                                              hotspot,
+                                                          )
+                                                "
+                                            >
+                                                {{
+                                                    areaEditHotspotId ===
+                                                    hotspot.id
+                                                        ? 'Cancel area edit'
+                                                        : 'Drag area'
                                                 }}
-                                                <span
-                                                    v-if="
-                                                        linkedHotspotPageNo(
-                                                            hotspot,
-                                                        ) !== null
-                                                    "
-                                                >
-                                                    (Page
-                                                    {{
-                                                        linkedHotspotPageNo(
-                                                            hotspot,
-                                                        )
-                                                    }})
-                                                </span>
-                                            </p>
-                                            <p
-                                                v-if="hotspot.label"
-                                                class="truncate text-muted-foreground"
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="secondary"
+                                                class="flex-1 sm:flex-none"
+                                                :disabled="
+                                                    linkedHotspotId(hotspot) ===
+                                                    null
+                                                "
+                                                @click.stop="
+                                                    openLinkedHotspot(hotspot)
+                                                "
                                             >
-                                                {{ hotspot.label }}
-                                            </p>
+                                                Open linked
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="destructive"
+                                                class="flex-1 sm:flex-none"
+                                                @click.stop="
+                                                    deleteHotspot(hotspot)
+                                                "
+                                            >
+                                                Delete
+                                            </Button>
                                         </div>
                                     </div>
-                                    <div
-                                        class="flex max-h-0 flex-wrap gap-2 overflow-hidden opacity-0 transition-all duration-200 group-focus-within:max-h-20 group-focus-within:opacity-100 group-hover:max-h-20 group-hover:opacity-100"
-                                        :class="[
-                                            activeHotspotId === hotspot.id ||
-                                            selectedHotspotIdSet.has(hotspot.id)
-                                                ? '!max-h-20 !opacity-100'
-                                                : '',
-                                        ]"
-                                    >
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            class="flex-1 sm:flex-none"
-                                            @click.stop="
-                                                focusHotspotOnCanvas(hotspot)
-                                            "
-                                        >
-                                            Locate
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            class="flex-1 sm:flex-none"
-                                            @click.stop="
-                                                openEditDialog(hotspot)
-                                            "
-                                        >
-                                            Edit
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            :variant="
-                                                areaEditHotspotId === hotspot.id
-                                                    ? 'default'
-                                                    : 'outline'
-                                            "
-                                            class="flex-1 sm:flex-none"
-                                            @click.stop="
-                                                areaEditHotspotId === hotspot.id
-                                                    ? cancelAreaEditSelection()
-                                                    : startAreaEditSelection(
-                                                          hotspot,
-                                                      )
-                                            "
-                                        >
-                                            {{
-                                                areaEditHotspotId === hotspot.id
-                                                    ? 'Cancel area edit'
-                                                    : 'Drag area'
-                                            }}
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            variant="secondary"
-                                            class="flex-1 sm:flex-none"
-                                            :disabled="
-                                                linkedHotspotId(hotspot) ===
-                                                null
-                                            "
-                                            @click.stop="
-                                                openLinkedHotspot(hotspot)
-                                            "
-                                        >
-                                            Open linked
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            variant="destructive"
-                                            class="flex-1 sm:flex-none"
-                                            @click.stop="deleteHotspot(hotspot)"
-                                        >
-                                            Delete
-                                        </Button>
-                                    </div>
-                                </div>
 
-                                <p
-                                    v-if="
-                                        filteredHotspots.length === 0 &&
-                                        currentHotspots.length > 0
-                                    "
-                                    class="text-sm text-muted-foreground"
-                                >
-                                    No hotspots match your search.
-                                </p>
-                                <p
-                                    v-if="currentHotspots.length === 0"
-                                    class="text-sm text-muted-foreground"
-                                >
-                                    No hotspots yet. Draw a rectangle on the
-                                    page image to create one.
-                                </p>
+                                    <p
+                                        v-if="
+                                            filteredHotspots.length === 0 &&
+                                            currentHotspots.length > 0
+                                        "
+                                        class="text-sm text-muted-foreground"
+                                    >
+                                        No hotspots match your search.
+                                    </p>
+                                    <p
+                                        v-if="currentHotspots.length === 0"
+                                        class="text-sm text-muted-foreground"
+                                    >
+                                        No hotspots yet. Draw a rectangle on the
+                                        page image to create one.
+                                    </p>
+                                </div>
                             </div>
-                        </div>
                         </SheetContent>
-                        </Sheet>
-                    </div>
+                    </Sheet>
+                </div>
             </div>
 
             <Card v-else>
@@ -3144,8 +3188,8 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                             <div class="grid gap-3 md:grid-cols-2">
                                 <div class="space-y-2">
                                     <label class="text-sm font-medium"
-                                        >Relation kind</label
-                                    >
+                                        >Relation kind
+                                    </label>
                                     <Select v-model="hotspotForm.relation_kind">
                                         <SelectTrigger>
                                             <SelectValue
@@ -3170,11 +3214,9 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
 
                                 <div class="space-y-2">
                                     <label class="text-sm font-medium"
-                                        >Target page</label
-                                    >
-                                    <Select
-                                        v-model="targetPageSelectValue"
-                                    >
+                                        >Target page
+                                    </label>
+                                    <Select v-model="targetPageSelectValue">
                                         <SelectTrigger>
                                             <SelectValue
                                                 placeholder="No target page"
@@ -3202,16 +3244,19 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                             </div>
                             <div class="space-y-2">
                                 <label class="text-sm font-medium"
-                                    >Target hotspot (optional)</label
-                                >
+                                    >Target hotspot (optional)
+                                </label>
                                 <Select
                                     v-model="targetHotspotSelectValue"
-                                    :disabled="hotspotForm.target_page_no === null"
+                                    :disabled="
+                                        hotspotForm.target_page_no === null
+                                    "
                                 >
                                     <SelectTrigger>
                                         <SelectValue
                                             :placeholder="
-                                                hotspotForm.target_page_no === null
+                                                hotspotForm.target_page_no ===
+                                                null
                                                     ? 'Select target page first'
                                                     : 'Any hotspot on target page'
                                             "
@@ -3257,8 +3302,8 @@ function onBeforeWindowUnload(event: BeforeUnloadEvent): void {
                         <div class="space-y-3 rounded-lg border p-3">
                             <div class="space-y-2">
                                 <label class="text-sm font-medium"
-                                    >Label (optional)</label
-                                >
+                                    >Label (optional)
+                                </label>
                                 <Input
                                     v-model="hotspotForm.label"
                                     placeholder="Optional label"
