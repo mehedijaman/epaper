@@ -24,4 +24,13 @@ export default defineConfig({
             },
         }),
     ],
+    build: {
+        chunkSizeWarningLimit: 800,
+        rollupOptions: {
+            onwarn(warning, warn) {
+                if (warning.code === 'ANNOTATION_DEPRECATION' || warning.code === 'INVALID_ANNOTATION') return;
+                warn(warning);
+            },
+        },
+    },
 });
