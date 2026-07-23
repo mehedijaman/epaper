@@ -3,6 +3,11 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="developer" content="Mehedi Jaman">
+        <meta name="company" content="gTechservice">
+        <meta name="website" content="www.gtechservice.net">
+        <meta name="email" content="mail4gtechservice@gmail.com">
+        <meta name="phone" content="01841090747">
 
         {{-- Inline script to detect system dark mode preference and apply it immediately --}}
         <script>
