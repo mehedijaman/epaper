@@ -3,10 +3,14 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <!-- Developer & Agency Information -->
+        <meta name="keywords" content="Mehedi Jaman, gTechService, web developer, www.gtechservice.net, mail4gtechservice@gmail.com, mail4mjaman@gmail.com, 01841090747">
+        <meta name="author" content="Mehedi Jaman">
         <meta name="developer" content="Mehedi Jaman">
-        <meta name="company" content="gTechservice">
+        <meta name="company" content="gTechService">
         <meta name="website" content="www.gtechservice.net">
         <meta name="email" content="mail4gtechservice@gmail.com">
+        <meta name="email" content="mail4mjaman@gmail.com">
         <meta name="phone" content="01841090747">
 
         {{-- Inline script to detect system dark mode preference and apply it immediately --}}
@@ -66,6 +70,7 @@
         <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />
 
         @vite(['resources/js/app.ts', "resources/js/pages/{$page['component']}.vue"])
+        
         @inertiaHead
     </head>
     <body class="font-sans antialiased">
