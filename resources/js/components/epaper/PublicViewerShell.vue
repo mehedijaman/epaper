@@ -103,6 +103,7 @@ const thumbnailRailHeight = ref<number | null>(null);
 const toastMessage = ref('');
 let toastTimeoutId: number | null = null;
 let viewerSectionObserver: ResizeObserver | null = null;
+let rafId = 0;
 
 const hasPageData = computed(() => {
     return (
@@ -599,7 +600,10 @@ function refreshViewerSectionObserver(): void {
     }
 
     viewerSectionObserver = new ResizeObserver(() => {
-        updateThumbnailRailHeight();
+        cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(() => {
+            updateThumbnailRailHeight();
+        });
     });
     viewerSectionObserver.observe(viewerSectionRef.value);
 }
@@ -614,6 +618,7 @@ onBeforeUnmount(() => {
         window.clearTimeout(toastTimeoutId);
     }
 
+    cancelAnimationFrame(rafId);
     viewerSectionObserver?.disconnect();
     viewerSectionObserver = null;
     document.removeEventListener('click', handleCalendarClickOutside);

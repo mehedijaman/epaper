@@ -46,5 +46,12 @@ createInertiaApp({
     },
 });
 
+// Suppress benign ResizeObserver errors ("ResizeObserver loop completed with undelivered notifications")
+window.addEventListener('error', (e) => {
+    if (e.message?.includes('ResizeObserver loop')) {
+        e.stopImmediatePropagation();
+    }
+});
+
 // This will set light / dark mode on page load...
 initializeTheme();
