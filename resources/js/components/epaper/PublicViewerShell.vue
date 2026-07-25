@@ -626,46 +626,30 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+
     <Head :title="title" />
 
     <div class="flex min-h-screen flex-col bg-slate-100 text-slate-900">
-        <PublicHeader
-                :logo-url="logoUrl"
-                :site-url="settings.site_url"
-                :edition-date="editionDate"
-                :social-facebook="settings.social_facebook"
-                :social-x="settings.social_x"
-                :social-youtube="settings.social_youtube"
-                :social-linkedin="settings.social_linkedin"
-                :social-instagram="settings.social_instagram"
-                :social-pinterest="settings.social_pinterest"
-            />
+        <PublicHeader :logo-url="logoUrl" :site-url="settings.site_url" :edition-date="editionDate"
+            :social-facebook="settings.social_facebook" :social-x="settings.social_x"
+            :social-youtube="settings.social_youtube" :social-linkedin="settings.social_linkedin"
+            :social-instagram="settings.social_instagram" :social-pinterest="settings.social_pinterest" />
 
         <main class="mx-auto w-full max-w-7xl flex-1 px-2 py-3 sm:px-4">
-            <div
-                class="rounded-xl border border-slate-200 bg-white shadow-sm"
-            >
-                <div
-                    class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 px-3 py-2.5 backdrop-blur-sm"
-                >
+            <div class="rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 px-3 py-2.5 backdrop-blur-sm">
                     <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
                         <!-- Row 1 on mobile (Edition + Calendar); sm:contents lets children join the parent flex row on desktop -->
                         <div class="flex items-center gap-2 sm:contents">
                             <div class="min-w-0 flex-1 sm:w-55 sm:flex-none">
-                                <Select
-                                    :model-value="selectedEditionId"
-                                    :disabled="editionOptions.length === 0"
-                                    @update:model-value="onEditionSelect"
-                                >
+                                <Select :model-value="selectedEditionId" :disabled="editionOptions.length === 0"
+                                    @update:model-value="onEditionSelect">
                                     <SelectTrigger>
                                         <SelectValue placeholder="Edition Select" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem
-                                            v-for="edition in editionOptions"
-                                            :key="edition.id"
-                                            :value="String(edition.id)"
-                                        >
+                                        <SelectItem v-for="edition in editionOptions" :key="edition.id"
+                                            :value="String(edition.id)">
                                             {{ editionDisplayLabel(edition) }}
                                         </SelectItem>
                                     </SelectContent>
@@ -673,66 +657,49 @@ onBeforeUnmount(() => {
                             </div>
 
                             <div ref="calendarRef" class="relative ml-auto shrink-0 sm:order-last sm:ml-auto">
-                                <button
-                                    type="button"
+                                <button type="button"
                                     class="inline-flex w-full cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm transition hover:border-slate-300 hover:bg-white sm:w-auto"
-                                    @click.stop="openCalendar"
-                                >
+                                    @click.stop="openCalendar">
                                     <CalendarDays class="size-4 shrink-0 text-slate-400" />
                                     <span class="font-semibold text-slate-800">{{ formattedSelectedDate }}</span>
                                 </button>
 
-                                <div
-                                    v-if="calendarOpen"
-                                    class="absolute right-0 top-full z-50 mt-1 w-72 rounded-xl border border-slate-200 bg-white p-3 shadow-xl"
-                                >
+                                <div v-if="calendarOpen"
+                                    class="absolute right-0 top-full z-50 mt-1 w-72 rounded-xl border border-slate-200 bg-white p-3 shadow-xl">
                                     <div class="mb-2 flex items-center justify-between">
-                                        <button
-                                            type="button"
+                                        <button type="button"
                                             class="flex size-7 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
-                                            @click.stop="prevCalendarMonth"
-                                        >
+                                            @click.stop="prevCalendarMonth">
                                             <ChevronLeft class="size-4" />
                                         </button>
-                                        <span class="text-sm font-semibold text-slate-800">{{ calendarMonthLabel }}</span>
-                                        <button
-                                            type="button"
+                                        <span class="text-sm font-semibold text-slate-800">{{ calendarMonthLabel
+                                        }}</span>
+                                        <button type="button"
                                             class="flex size-7 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
-                                            @click.stop="nextCalendarMonth"
-                                        >
+                                            @click.stop="nextCalendarMonth">
                                             <ChevronRight class="size-4" />
                                         </button>
                                     </div>
                                     <div class="mb-1 grid grid-cols-7 text-center">
-                                        <div
-                                            v-for="label in WEEKDAY_LABELS"
-                                            :key="label"
-                                            class="py-1 text-xs font-medium text-slate-400"
-                                        >
+                                        <div v-for="label in WEEKDAY_LABELS" :key="label"
+                                            class="py-1 text-xs font-medium text-slate-400">
                                             {{ label }}
                                         </div>
                                     </div>
                                     <div class="grid grid-cols-7 gap-0.5">
                                         <template v-for="(date, i) in calendarGrid" :key="i">
-                                            <button
-                                                v-if="date !== null"
-                                                type="button"
-                                                :disabled="!isDateAvailable(date)"
-                                                :class="[
+                                            <button v-if="date !== null" type="button"
+                                                :disabled="!isDateAvailable(date)" :class="[
                                                     'relative w-full rounded-md py-1.5 text-xs transition',
                                                     date === selectedDate
                                                         ? 'bg-slate-900 font-semibold text-white'
                                                         : isDateAvailable(date)
-                                                          ? 'cursor-pointer font-medium text-slate-700 hover:bg-slate-100'
-                                                          : 'cursor-not-allowed text-slate-200',
-                                                ]"
-                                                @click.stop="selectCalendarDate(date)"
-                                            >
+                                                            ? 'cursor-pointer font-medium text-slate-700 hover:bg-slate-100'
+                                                            : 'cursor-not-allowed text-slate-200',
+                                                ]" @click.stop="selectCalendarDate(date)">
                                                 {{ Number(date.split('-')[2]) }}
-                                                <span
-                                                    v-if="isDateAvailable(date) && date !== selectedDate"
-                                                    class="absolute bottom-0.5 left-1/2 size-1 -translate-x-1/2 rounded-full bg-slate-400"
-                                                />
+                                                <span v-if="isDateAvailable(date) && date !== selectedDate"
+                                                    class="absolute bottom-0.5 left-1/2 size-1 -translate-x-1/2 rounded-full bg-slate-400" />
                                             </button>
                                             <div v-else />
                                         </template>
@@ -744,61 +711,45 @@ onBeforeUnmount(() => {
                         <!-- Row 2 on mobile (Pagination + Toggle); sm:contents lets children join the parent flex row on desktop -->
                         <div class="flex items-center gap-2 sm:contents">
                             <div class="flex min-w-0 flex-1 items-center gap-1">
-                                <button
-                                    type="button"
-                                    :disabled="prevPageNo === null || !hasPageData"
+                                <button type="button" :disabled="prevPageNo === null || !hasPageData"
                                     title="Previous page"
                                     class="flex h-7 shrink-0 items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 text-xs font-medium text-slate-600 transition-all hover:border-slate-300 hover:bg-white hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
-                                    @click="prevPageNo !== null ? navigateToPage(prevPageNo) : null"
-                                >
+                                    @click="prevPageNo !== null ? navigateToPage(prevPageNo) : null">
                                     <ChevronLeft class="size-3.5" />
                                     <span class="hidden sm:inline">Prev</span>
                                 </button>
 
                                 <div class="min-w-0 flex-1 overflow-x-auto">
-                                    <div class="flex w-max items-center gap-0.5 rounded-lg border border-slate-200 bg-slate-50 p-0.5">
-                                        <button
-                                            v-for="item in scopedPages"
-                                            :key="item.id"
-                                            type="button"
-                                            :disabled="!hasPageData"
-                                            :title="`Page ${item.page_no}`"
+                                    <div
+                                        class="flex w-max items-center gap-0.5 rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+                                        <button v-for="item in scopedPages" :key="item.id" type="button"
+                                            :disabled="!hasPageData" :title="`Page ${item.page_no}`"
                                             class="flex size-6 items-center justify-center rounded-md text-xs font-semibold transition-all"
-                                            :class="
-                                                item.page_no === currentPageNo
-                                                    ? 'bg-slate-900 text-white shadow-sm'
-                                                    : 'text-slate-500 hover:bg-white hover:text-slate-900 hover:shadow-sm'
-                                            "
-                                            @click="navigateToPage(item.page_no)"
-                                        >
+                                            :class="item.page_no === currentPageNo
+                                                ? 'bg-slate-900 text-white shadow-sm'
+                                                : 'text-slate-500 hover:bg-white hover:text-slate-900 hover:shadow-sm'
+                                                " @click="navigateToPage(item.page_no)">
                                             {{ item.page_no }}
                                         </button>
                                     </div>
                                 </div>
 
-                                <button
-                                    type="button"
-                                    :disabled="nextPageNo === null || !hasPageData"
-                                    title="Next page"
+                                <button type="button" :disabled="nextPageNo === null || !hasPageData" title="Next page"
                                     class="flex h-7 shrink-0 items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 text-xs font-medium text-slate-600 transition-all hover:border-slate-300 hover:bg-white hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
-                                    @click="nextPageNo !== null ? navigateToPage(nextPageNo) : null"
-                                >
+                                    @click="nextPageNo !== null ? navigateToPage(nextPageNo) : null">
                                     <span class="hidden sm:inline">Next</span>
                                     <ChevronRight class="size-3.5" />
                                 </button>
                             </div>
 
-                            <button
-                                type="button"
+                            <button type="button"
                                 class="flex h-7 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium transition-all"
-                                :class="
-                                    thumbnailMode === 'grid'
-                                        ? 'border-slate-900 bg-slate-900 text-white hover:bg-slate-700 hover:border-slate-700'
-                                        : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-white hover:text-slate-900'
-                                "
+                                :class="thumbnailMode === 'grid'
+                                    ? 'border-slate-900 bg-slate-900 text-white hover:bg-slate-700 hover:border-slate-700'
+                                    : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-white hover:text-slate-900'
+                                    "
                                 :title="thumbnailMode === 'strip' ? 'All pages (thumbnail view)' : 'Back to reader'"
-                                @click="toggleThumbnailMode"
-                            >
+                                @click="toggleThumbnailMode">
                                 <Grid2x2 v-if="thumbnailMode === 'strip'" class="size-3.5" />
                                 <List v-else class="size-3.5" />
                                 সব পাতা
@@ -815,52 +766,27 @@ onBeforeUnmount(() => {
                 </div>
 
                 <!-- Top Banner -->
-                <div
-                    v-if="adsForPosition('Top Banner').length > 0"
-                    class="border-b border-slate-200 px-3 py-2"
-                >
-                    <AdBlock
-                        v-for="ad in adsForPosition('Top Banner')"
-                        :key="ad.id"
-                        :ad="ad"
-                        class="rounded-lg"
-                    />
+                <div v-if="adsForPosition('Top Banner').length > 0" class="border-b border-slate-200 px-3 py-2">
+                    <AdBlock v-for="ad in adsForPosition('Top Banner')" :key="ad.id" :ad="ad" class="rounded-lg" />
                 </div>
 
                 <template v-if="hasPageData && page">
                     <!-- Full-page thumbnail grid view -->
-                    <div
-                        v-if="thumbnailMode === 'grid'"
-                        class="p-3 sm:p-5"
-                    >
+                    <div v-if="thumbnailMode === 'grid'" class="p-3 sm:p-5">
                         <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                            <button
-                                v-for="item in scopedPages"
-                                :key="item.id"
-                                type="button"
+                            <button v-for="item in scopedPages" :key="item.id" type="button"
                                 class="group w-full overflow-hidden rounded-lg border bg-white p-1.5 text-left transition-all hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
-                                :class="
-                                    item.page_no === currentPageNo
-                                        ? 'border-sky-500 shadow-sm ring-1 ring-sky-500'
-                                        : 'border-slate-200 hover:border-slate-300'
-                                "
-                                :title="`Go to page ${item.page_no}`"
-                                @click="navigateToPageFromGrid(item.page_no)"
-                            >
-                                <img
-                                    :src="item.image_thumb_url"
-                                    :alt="`Page ${item.page_no}`"
-                                    loading="lazy"
-                                    class="h-auto w-full rounded"
-                                />
-                                <p
-                                    class="mt-1 text-center text-[11px] font-medium bg-black text-white"
-                                    :class="
-                                        item.page_no === currentPageNo
-                                            ? 'text-sky-700'
-                                            : 'text-slate-500 group-hover:text-slate-700'
-                                    "
-                                >
+                                :class="item.page_no === currentPageNo
+                                    ? 'border-sky-500 shadow-sm ring-1 ring-sky-500'
+                                    : 'border-slate-200 hover:border-slate-300'
+                                    " :title="`Go to page ${item.page_no}`"
+                                @click="navigateToPageFromGrid(item.page_no)">
+                                <img :src="item.image_thumb_url" :alt="`Page ${item.page_no}`" loading="lazy"
+                                    class="h-auto w-full rounded" />
+                                <p class="mt-1 text-center text-[11px] font-medium bg-black text-white" :class="item.page_no === currentPageNo
+                                    ? 'text-sky-700'
+                                    : 'text-slate-500 group-hover:text-slate-700'
+                                    ">
                                     Page {{ item.page_no }}
                                 </p>
                             </button>
@@ -868,114 +794,60 @@ onBeforeUnmount(() => {
                     </div>
 
                     <!-- Strip reader view -->
-                    <div
-                        v-else
-                        class="grid items-stretch lg:grid-cols-[140px_minmax(0,1fr)]"
-                    >
-                        <ThumbnailRail
-                            class="hidden lg:block"
-                            :pages="scopedPages"
-                            :active-page-no="page.page_no"
-                            :mode="'strip'"
-                            :rail-height="thumbnailRailHeight"
-                            @select="navigateToPage"
-                        />
+                    <div v-else class="grid items-stretch lg:grid-cols-[140px_minmax(0,1fr)]">
+                        <ThumbnailRail class="hidden lg:block" :pages="scopedPages" :active-page-no="page.page_no"
+                            :mode="'strip'" :rail-height="thumbnailRailHeight" @select="navigateToPage" />
 
-                        <section
-                            ref="viewerSectionRef"
-                            class="min-w-0 bg-slate-50 p-2 sm:p-3"
-                        >
-                            <div
-                                class="mx-auto max-w-5xl"
-                                :class="adsForPosition('Sidebar Right').length > 0 ? 'xl:grid xl:grid-cols-[minmax(0,1fr)_200px] xl:gap-3' : ''"
-                            >
-                                <ViewerFrame
-                                    :page="page"
-                                    :edition-date="frameEditionDate"
-                                    :selected-edition-id="selectedEditionIdNumber"
-                                    :total-pages="scopedPages.length"
-                                    :prev-page-no="prevPageNo"
-                                    :next-page-no="nextPageNo"
-                                    @previous="
+                        <section ref="viewerSectionRef" class="min-w-0 bg-slate-50 p-2 sm:p-3">
+                            <div class="mx-auto max-w-5xl"
+                                :class="adsForPosition('Sidebar Right').length > 0 ? 'xl:grid xl:grid-cols-[minmax(0,1fr)_200px] xl:gap-3' : ''">
+                                <ViewerFrame :page="page" :edition-date="frameEditionDate"
+                                    :selected-edition-id="selectedEditionIdNumber" :total-pages="scopedPages.length"
+                                    :prev-page-no="prevPageNo" :next-page-no="nextPageNo" @previous="
                                         prevPageNo !== null
                                             ? navigateToPage(prevPageNo)
                                             : null
-                                    "
-                                    @next="
-                                        nextPageNo !== null
-                                            ? navigateToPage(nextPageNo)
-                                            : null
-                                    "
-                                />
+                                        " @next="
+                                            nextPageNo !== null
+                                                ? navigateToPage(nextPageNo)
+                                                : null
+                                            " />
                                 <!-- Sidebar Right -->
-                                <aside
-                                    v-if="adsForPosition('Sidebar Right').length > 0"
-                                    class="hidden xl:flex xl:flex-col xl:gap-2"
-                                >
-                                    <AdBlock
-                                        v-for="ad in adsForPosition('Sidebar Right')"
-                                        :key="ad.id"
-                                        :ad="ad"
-                                    />
+                                <aside v-if="adsForPosition('Sidebar Right').length > 0"
+                                    class="hidden xl:flex xl:flex-col xl:gap-2">
+                                    <AdBlock v-for="ad in adsForPosition('Sidebar Right')" :key="ad.id" :ad="ad" />
                                 </aside>
                             </div>
 
                             <!-- Between-content banner (Sidebar Left on small screens) -->
-                            <div
-                                v-if="adsForPosition('Sidebar Left').length > 0"
-                                class="mx-auto mt-3 max-w-5xl space-y-2"
-                            >
-                                <AdBlock
-                                    v-for="ad in adsForPosition('Sidebar Left')"
-                                    :key="ad.id"
-                                    :ad="ad"
-                                />
+                            <div v-if="adsForPosition('Sidebar Left').length > 0"
+                                class="mx-auto mt-3 max-w-5xl space-y-2">
+                                <AdBlock v-for="ad in adsForPosition('Sidebar Left')" :key="ad.id" :ad="ad" />
                             </div>
                         </section>
                     </div>
                 </template>
 
-                <div
-                    v-else
-                    class="flex items-center justify-center p-12 text-sm text-slate-500"
-                >
+                <div v-else class="flex items-center justify-center p-12 text-sm text-slate-500">
                     No published edition found.
                 </div>
             </div>
         </main>
 
         <!-- Footer Banner -->
-        <div
-            v-if="adsForPosition('Footer Banner').length > 0"
-            class="border-t border-slate-200 bg-slate-50 py-3"
-        >
+        <div v-if="adsForPosition('Footer Banner').length > 0" class="border-t border-slate-200 bg-slate-50 py-3">
             <div class="mx-auto max-w-7xl space-y-2 px-4">
-                <AdBlock
-                    v-for="ad in adsForPosition('Footer Banner')"
-                    :key="ad.id"
-                    :ad="ad"
-                />
+                <AdBlock v-for="ad in adsForPosition('Footer Banner')" :key="ad.id" :ad="ad" />
             </div>
         </div>
 
-        <PublicFooter
-            :logo-url="logoUrl"
-            :site-url="settings.site_url"
-            :copyright="settings.footer_copyright"
-            :editor-info="settings.footer_editor_info"
-            :contact-info="settings.footer_contact_info"
-            :social-facebook="settings.social_facebook"
-            :social-x="settings.social_x"
-            :social-youtube="settings.social_youtube"
-            :social-linkedin="settings.social_linkedin"
-            :social-instagram="settings.social_instagram"
-            :social-pinterest="settings.social_pinterest"
-        />
+        <PublicFooter :logo-url="logoUrl" :site-url="settings.site_url" :copyright="settings.footer_copyright"
+            :editor-info="settings.footer_editor_info" :contact-info="settings.footer_contact_info"
+            :social-facebook="settings.social_facebook" :social-x="settings.social_x"
+            :social-youtube="settings.social_youtube" :social-linkedin="settings.social_linkedin"
+            :social-instagram="settings.social_instagram" :social-pinterest="settings.social_pinterest" />
 
-        <div
-            v-if="toastMessage !== ''"
-            class="pointer-events-none fixed top-4 right-4 z-50 w-full max-w-sm"
-        >
+        <div v-if="toastMessage !== ''" class="pointer-events-none fixed top-4 right-4 z-50 w-full max-w-sm">
             <Alert variant="destructive" class="pointer-events-auto shadow-lg">
                 <AlertCircle class="size-4" />
                 <AlertDescription>{{ toastMessage }}</AlertDescription>
