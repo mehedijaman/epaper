@@ -39,6 +39,13 @@ test('settings index includes favicon_url and site_name', function (): void {
                 ->has(SiteSetting::FOOTER_EDITOR_INFO)
                 ->has(SiteSetting::FOOTER_CONTACT_INFO)
                 ->has(SiteSetting::FOOTER_COPYRIGHT)
+                ->has(SiteSetting::SITE_URL)
+                ->has(SiteSetting::SOCIAL_FACEBOOK)
+                ->has(SiteSetting::SOCIAL_X)
+                ->has(SiteSetting::SOCIAL_YOUTUBE)
+                ->has(SiteSetting::SOCIAL_LINKEDIN)
+                ->has(SiteSetting::SOCIAL_INSTAGRAM)
+                ->has(SiteSetting::SOCIAL_PINTEREST)
             )
         );
 });

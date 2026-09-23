@@ -3,6 +3,7 @@
 use App\Models\Edition;
 use App\Models\Page;
 use App\Models\PageHotspot;
+use App\Models\SiteSetting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -205,6 +206,19 @@ test('hotspot preview returns cropped image and validates page ownership', funct
         ->assertNotFound();
 
     $this->get(route('epaper.hotspot.target-preview', [
+        'date' => '2026-02-20',
+        'pageNo' => 1,
+        'hotspotId' => $hotspotOnPageOne->id,
+        'edition' => $edition->id,
+    ]))
+        ->assertOk()
+        ->assertHeader('content-type', 'image/jpeg');
+
+    $fakeLogo = UploadedFile::fake()->image('logo.png', 200, 100);
+    Storage::disk($diskName)->putFileAs('epaper/settings/logo', $fakeLogo, 'logo.png');
+    SiteSetting::setValue(SiteSetting::LOGO_PATH, 'epaper/settings/logo/logo.png');
+
+    $this->get(route('epaper.hotspot.preview', [
         'date' => '2026-02-20',
         'pageNo' => 1,
         'hotspotId' => $hotspotOnPageOne->id,

@@ -51,21 +51,19 @@ class PublicEpaperHotspotController extends Controller
             ])
             : null;
 
-        $previewUrl = route('epaper.hotspot.preview', [
-            'date' => $editionDate,
-            'pageNo' => $page->page_no,
-            'hotspotId' => $hotspot->id,
-            'edition' => $edition->id,
-        ]);
-
-        $targetHotspot = $this->resolveTargetHotspot($hotspot, $edition->id);
-        $targetPreviewUrl = $targetHotspot !== null
+        $previewUrl = $this->previewUrl($edition, $page, $hotspot);
+        $targetPreviewUrl = $targetUrl !== null
             ? route('epaper.hotspot.target-preview', [
                 'date' => $editionDate,
                 'pageNo' => $page->page_no,
                 'hotspotId' => $hotspot->id,
                 'edition' => $edition->id,
             ])
+            : null;
+
+        $targetHotspot = $this->resolveTargetHotspot($hotspot, $edition->id);
+        $targetPreviewUrl = $targetHotspot !== null
+            ? $this->targetPreviewUrl($edition, $page, $hotspot)
             : null;
 
         $rawSettings = EpaperData::mapSiteSettings(
@@ -157,6 +155,8 @@ class PublicEpaperHotspotController extends Controller
 
         abort_if($sourcePath === '' || ! $disk->exists($sourcePath), 404);
 
+        $logoPath = SiteSetting::getValue(SiteSetting::LOGO_PATH);
+
         $cacheKey = sha1(implode('|', [
             $sourcePath,
             $hotspot->id,
@@ -166,6 +166,7 @@ class PublicEpaperHotspotController extends Controller
             round((float) $hotspot->h, 6),
             $page->updated_at?->getTimestamp() ?? 0,
             $hotspot->updated_at?->getTimestamp() ?? 0,
+            $logoPath ?? '',
         ]));
 
         $cachedPath = sprintf(
@@ -207,6 +208,16 @@ class PublicEpaperHotspotController extends Controller
                 ->crop($cropWidth, $cropHeight, $cropX, $cropY)
                 ->scaleDown(width: 1600);
 
+            if ($logoPath !== null && $logoPath !== '' && $disk->exists($logoPath)) {
+                try {
+                    $logo = Image::read($disk->get($logoPath));
+                    $logo = $logo->scaleDown(width: (int) round($preview->width() * 0.15));
+                    $preview->place($logo, 'center', 0, 0, 30);
+                } catch (\Throwable) {
+                    // Skip watermark if logo cannot be loaded
+                }
+            }
+
             $disk->put($cachedPath, (string) $preview->toJpeg(quality: 85));
         }
 
@@ -220,11 +231,73 @@ class PublicEpaperHotspotController extends Controller
         );
     }
 
+    private function previewUrl(Edition $edition, Page $page, PageHotspot $hotspot): string
+    {
+        $url = route('epaper.hotspot.preview', [
+            'date' => $edition->edition_date->toDateString(),
+            'pageNo' => $page->page_no,
+            'hotspotId' => $hotspot->id,
+            'edition' => $edition->id,
+        ]);
+
+        $disk = Storage::disk((string) config('epaper.disk'));
+        $logoPath = SiteSetting::getValue(SiteSetting::LOGO_PATH);
+        $cacheKey = sha1(implode('|', [
+            $page->image_large_path ?: $page->image_original_path,
+            $hotspot->id,
+            round((float) $hotspot->x, 6),
+            round((float) $hotspot->y, 6),
+            round((float) $hotspot->w, 6),
+            round((float) $hotspot->h, 6),
+            $page->updated_at?->getTimestamp() ?? 0,
+            $hotspot->updated_at?->getTimestamp() ?? 0,
+            $logoPath ?? '',
+        ]));
+        $cachedPath = sprintf('epaper/hotspot-previews/%s/%s.jpg', $edition->edition_date->toDateString(), $cacheKey);
+
+        if ($disk->exists($cachedPath)) {
+            $url .= '?v='.$disk->lastModified($cachedPath);
+        }
+
+        return $url;
+    }
+
+    private function targetPreviewUrl(Edition $edition, Page $page, PageHotspot $hotspot): string
+    {
+        $url = route('epaper.hotspot.target-preview', [
+            'date' => $edition->edition_date->toDateString(),
+            'pageNo' => $page->page_no,
+            'hotspotId' => $hotspot->id,
+            'edition' => $edition->id,
+        ]);
+
+        $disk = Storage::disk((string) config('epaper.disk'));
+        $logoPath = SiteSetting::getValue(SiteSetting::LOGO_PATH);
+        $cacheKey = sha1(implode('|', [
+            $page->image_large_path ?: $page->image_original_path,
+            $hotspot->id,
+            round((float) $hotspot->x, 6),
+            round((float) $hotspot->y, 6),
+            round((float) $hotspot->w, 6),
+            round((float) $hotspot->h, 6),
+            $page->updated_at?->getTimestamp() ?? 0,
+            $hotspot->updated_at?->getTimestamp() ?? 0,
+            $logoPath ?? '',
+        ]));
+        $cachedPath = sprintf('epaper/hotspot-previews/%s/%s.jpg', $edition->edition_date->toDateString(), $cacheKey);
+
+        if ($disk->exists($cachedPath)) {
+            $url .= '?v='.$disk->lastModified($cachedPath);
+        }
+
+        return $url;
+    }
+
     private function resolveTargetHotspot(PageHotspot $hotspot, int $editionId): ?PageHotspot
     {
         if ($hotspot->target_hotspot_id !== null) {
             $directTarget = PageHotspot::query()
-                ->with(['page:id,edition_id,image_original_path,image_large_path'])
+                ->with(['page:id,edition_id,page_no,image_original_path,image_large_path'])
                 ->whereKey($hotspot->target_hotspot_id)
                 ->whereHas('page', fn ($query) => $query->where('edition_id', $editionId))
                 ->first();
@@ -235,7 +308,7 @@ class PublicEpaperHotspotController extends Controller
         }
 
         return PageHotspot::query()
-            ->with(['page:id,edition_id,image_original_path,image_large_path'])
+            ->with(['page:id,edition_id,page_no,image_original_path,image_large_path'])
             ->where('linked_hotspot_id', $hotspot->id)
             ->whereHas('page', fn ($query) => $query->where('edition_id', $editionId))
             ->orderBy('id')
